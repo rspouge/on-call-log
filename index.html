@@ -1,0 +1,3088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>On-Call Log</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#1fa596">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="On-Call Log">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d161c;
+    --panel: #16232b;
+    --panel-hover: #1d2c35;
+    --border: #26404a;
+    --text: #e9f1f0;
+    --text-dim: #8fa8a8;
+    --text-faint: #56706f;
+    --amber: #1fa596;
+    --amber-dim: #0f2e2c;
+    --teal: #3d6fa8;
+    --teal-dim: #16273a;
+    --red: #d97862;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html, body { overflow-x: hidden; max-width: 100%; overscroll-behavior-x: none; -webkit-text-size-adjust: 100%; touch-action: pan-y; }
+
+  /* iPhone zooms the page when a text box smaller than 16px is tapped; keep boxes at 16px so the screen doesn't shift. */
+  input, select, textarea, .field input, .field textarea, .field select, .time24 input { font-size: 16px !important; }
+  body:has(.overlay.open) { overflow: hidden; }
+  .overlay { overscroll-behavior: contain; }
+
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-feature-settings: "tnum";
+  }
+
+  #app {
+    max-width: 560px;
+    margin: 0 auto;
+    min-height: 100vh;
+    padding: 0 16px 160px;
+    position: relative;
+  }
+
+  header { padding: 28px 4px 18px; }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .brand-mark svg { width: 100%; height: 100%; }
+
+  .brand-org {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.01em;
+    margin-bottom: 1px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+
+  .menu-btn {
+    flex: none;
+    width: 38px; height: 38px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .menu-btn span { display:block; width: 18px; height: 2px; background: var(--text); border-radius: 2px; }
+  .drawer-scrim {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 70;
+  }
+  .drawer-scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; bottom: 0; left: 0;
+    width: min(82vw, 300px);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%); transition: transform .22s ease;
+    z-index: 71; padding: 22px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer h3 { margin: 0 0 12px 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+  .drawer-item {
+    background: transparent; border: none; color: var(--text);
+    text-align: left; font-family: 'Space Grotesk', sans-serif; font-size: 16px;
+    padding: 14px 10px; border-radius: 10px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .drawer-item:hover, .drawer-item:active { background: var(--panel-hover); }
+  .drawer-item .chev { color: var(--text-dim); }
+  .link-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .link-row a { flex: 1; min-width: 0; color: var(--teal); text-decoration: none; font-weight: 600; word-break: break-word; }
+  .link-row a small { display:block; color: var(--text-dim); font-weight: 400; font-size: 11.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .link-del { flex: none; background: transparent; border: 1px solid var(--red); color: var(--red); font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+
+  .lock-now-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  header .sub {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .scope-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .scope-btn.active {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .lock-link {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 16px;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: 'Space Grotesk', sans-serif;
+    display: none;
+  }
+  .recovery-code {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-align: center;
+    line-height: 1.5;
+    color: var(--amber);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 10px;
+    margin: 4px 0 14px;
+    user-select: all;
+    -webkit-user-select: all;
+    word-break: break-all;
+  }
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    margin: 0 0 16px;
+    cursor: pointer;
+  }
+  .check-row input { width: 20px; height: 20px; accent-color: var(--amber); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .status-ok { color: var(--amber); font-size: 12.5px; min-height: 16px; margin: -4px 0 14px; text-align: left; }
+
+  .export-icon-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--amber);
+    padding: 6px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .export-icon-btn svg { width: 16px; height: 16px; display: block; }
+
+  .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+
+  .stat-card .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .stat-card .label {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  .profile-chip {
+    display: inline-block;
+    margin-top: 6px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--amber);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  :root { --holiday: #e0a64e; --holiday-dim: #33290f; }
+  .holiday-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--holiday);
+    background: var(--holiday-dim);
+    border-radius: 5px;
+    padding: 1px 7px;
+    margin-left: 8px;
+  }
+  .cal-cell { position: relative; }
+  .cal-cell.holiday::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--holiday);
+  }
+  .cal-hol-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--holiday);
+    margin-right: 3px;
+  }
+
+  .view-toggle {
+    display: flex;
+    margin-top: 22px;
+    padding: 3px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .view-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px;
+    border-radius: 7px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .view-btn.active { background: var(--amber); color: #052321; }
+
+  .cal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 18px;
+  }
+  .cal-title { font-weight: 600; font-size: 16px; }
+  .cal-nav-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    width: 38px;
+    height: 34px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .cal-summary {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cal-today-btn {
+    background: transparent;
+    border: none;
+    color: var(--amber);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12.5px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 12px;
+  }
+  .cal-dow {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    padding: 4px 0;
+  }
+  .cal-cell {
+    aspect-ratio: 1 / 1.05;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    padding: 0;
+  }
+  .cal-cell.blank { background: transparent; border: none; cursor: default; }
+  .cal-cell.today { border-color: var(--amber); }
+  .cal-cell.selected { background: var(--amber-dim); border-color: var(--amber); }
+  .cal-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    background: var(--amber);
+    color: #052321;
+    border-radius: 9px;
+    padding: 0 6px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+  .cal-quiet {
+    display: inline-block;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    border: 1px dashed var(--text-faint);
+    border-radius: 9px;
+    padding: 0 6px;
+    line-height: 14px;
+  }
+  .cal-legend { font-size: 11.5px; color: var(--text-faint); margin-top: 10px; }
+  .cal-detail-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 22px 0 10px;
+    padding: 0 2px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cal-empty { color: var(--text-faint); font-size: 13px; padding: 6px 2px 2px; }
+  .cal-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .cal-action-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--amber);
+    padding: 10px;
+    border-radius: 9px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .call-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .row-delete {
+    background: none;
+    border: none;
+    color: var(--red);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  #calLogBtn {
+    background: var(--amber);
+    color: #052321;
+    border-color: var(--amber);
+  }
+
+  .quiet-row {
+    display: flex;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 8px;
+    align-items: center;
+    gap: 12px;
+  }
+  .quiet-row .call-label { color: var(--text-dim); }
+  .quiet-delete {
+    background: transparent;
+    border: 1px solid var(--red);
+    color: var(--red);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .export-btn {
+    width: 100%;
+    margin-top: 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--amber);
+    padding: 11px;
+    border-radius: 9px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .export-btn:active { background: var(--amber-dim); }
+
+  .day-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 12px 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .month-group { margin-top: 24px; }
+  .month-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 2px;
+    border-bottom: 1px solid var(--text-faint);
+    cursor: pointer;
+    user-select: none;
+  }
+  .month-label { font-weight: 700; font-size: 16px; }
+  .month-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-align: right;
+  }
+  .month-days { display: none; }
+  .month-days.open {
+    display: block;
+    margin: 2px 0 0 4px;
+    padding-left: 12px;
+    border-left: 2px solid var(--border);
+  }
+
+  .day-group.open .day-heading { margin-bottom: 10px; }
+
+  .day-heading .day-label {
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .day-heading .day-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .day-chevron {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin: -4px 3px 0 4px;
+    border-right: 2px solid var(--text-dim);
+    border-bottom: 2px solid var(--text-dim);
+    transform: rotate(45deg);
+    transition: transform .18s ease, margin .18s ease;
+  }
+  .day-chevron.open { transform: rotate(-135deg); margin-top: 4px; }
+
+  .day-calls { display: none; }
+  .day-calls.open { display: block; }
+
+  .call-row {
+    display: flex;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 12px;
+    margin-bottom: 8px;
+    align-items: center;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .call-row:hover { background: var(--panel-hover); }
+
+  .call-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--amber);
+    min-width: 50px;
+  }
+
+  .call-body { flex: 1; min-width: 0; }
+
+  .call-label {
+    font-size: 14.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .call-reason {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin-top: 2px;
+  }
+
+  .call-duration {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--teal);
+    white-space: nowrap;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 70px 20px;
+    color: var(--text-faint);
+  }
+  .empty-state .big {
+    font-size: 15px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .fab {
+    position: fixed;
+    bottom: 74px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(528px, calc(100% - 32px));
+    background: var(--amber);
+    color: #052321;
+    border: none;
+    border-radius: 14px;
+    padding: 15px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    z-index: 10;
+  }
+  .fab:active { transform: translateX(-50%) scale(0.98); }
+
+  .fab-secondary {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(528px, calc(100% - 32px));
+    background: var(--bg);
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    border-radius: 14px;
+    padding: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+  }
+  .fab-secondary:active { transform: translateX(-50%) scale(0.98); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8,10,14,.6);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 20;
+  }
+  .overlay.open { display: flex; }
+
+  .sheet {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    width: 100%;
+    max-width: 560px;
+    border-radius: 18px 18px 0 0;
+    padding: 20px 18px 26px;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+
+  .sheet h2 { font-size: 17px; margin: 0 0 18px; }
+
+  .field { margin-bottom: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field input, .field textarea, .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 11px 12px;
+    font-size: 15px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .field input.mono, .field textarea.mono { font-family: 'IBM Plex Mono', monospace; }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+  .field select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1L5 5L9 1' stroke='%238d96a6' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 30px;
+  }
+  .field select option { background: var(--panel); color: var(--text); }
+
+  .call-type-tag {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--amber);
+    background: var(--amber-dim);
+    border-radius: 5px;
+    padding: 2px 7px;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+
+  input[type="date"] { color-scheme: dark; }
+  /* iPhone gives date boxes a minimum width wider than the screen; force them to fit like the other boxes. */
+  .field input[type="date"], input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 46px;
+    text-align: center;
+  }
+  input[type="date"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0 auto; }
+  .sheet, .sheet .field { max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .sheet { overflow-x: hidden; }
+
+  .time24 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .t24-mwrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+  }
+  .t24-mwrap .t24-m { padding-right: 30px; width: 100%; }
+  .t24-arrow {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 30px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+  }
+  .t24-arrow::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 7px; height: 7px;
+    border-right: 2px solid var(--text-dim);
+    border-bottom: 2px solid var(--text-dim);
+    transform: translate(-50%, -70%) rotate(45deg);
+  }
+  .t24-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    z-index: 30;
+    background: var(--surface, #14222a);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
+  .t24-menu.open { display: block; }
+  .t24-opt {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .t24-opt:hover, .t24-opt:active { background: var(--border); }
+  .time24 input {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 11px 8px;
+  }
+  .t24-sep { color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; }
+
+  .duration-readout {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--teal);
+    margin: -4px 0 14px;
+    min-height: 18px;
+  }
+
+  .next-day-tag { display:block; font-size:10px; color: var(--text-dim); letter-spacing:.04em; margin-top:2px; }
+  .hint {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-top: -8px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+
+  .btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 9px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14.5px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+  }
+  .btn.primary { background: var(--amber); color: #052321; border: none; }
+  .btn.ghost { background: transparent; color: var(--text-dim); }
+  .btn.danger { background: transparent; color: var(--red); border-color: var(--red); }
+
+  .loading {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+
+  .lock-wrap {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  .lock-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 24px 24px;
+    text-align: center;
+  }
+  .lock-icon { font-size: 26px; margin-bottom: 12px; }
+  .lock-card h2 { font-size: 18px; margin: 0 0 8px; }
+  .lock-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0 0 22px;
+  }
+  .lock-card .field { text-align: left; }
+  .lock-error {
+    color: var(--red);
+    font-size: 12.5px;
+    min-height: 16px;
+    margin: -4px 0 14px;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+
+<div id="app" style="display:none">
+  <div class="loading" id="loading">Loading log…</div>
+</div>
+
+<button class="fab" id="fabBtn" style="display:none">+ Log a call</button>
+<button class="fab-secondary" id="quietOpenBtn" style="display:none">+ Add an on-call day with no calls</button>
+
+<div class="lock-wrap" id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-icon">🔒</div>
+    <h2 id="lockTitle">Set a passcode</h2>
+    <p class="lock-sub" id="lockSub">This encrypts patient identifiers and notes stored on this device.</p>
+    <div class="field" id="lockRecField" style="display:none">
+      <label>Recovery code</label>
+      <input type="text" id="lockRec" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX">
+    </div>
+    <div class="field">
+      <label id="lockLabel1">Passcode</label>
+      <input type="password" id="lockPass1" class="mono" autocomplete="off">
+    </div>
+    <div class="field" id="lockConfirmField">
+      <label id="lockLabel2">Confirm passcode</label>
+      <input type="password" id="lockPass2" class="mono" autocomplete="off">
+    </div>
+    <div class="lock-error" id="lockError"></div>
+    <button class="btn primary" id="lockSubmit" style="width:100%">Set passcode &amp; continue</button>
+    <button class="lock-link" id="lockForgotLink">Forgot passcode?</button>
+    <button class="lock-link" id="lockBackLink">Back to unlock</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheetTitle">Log a call</h2>
+
+    <div class="field">
+      <label>On-call day (the day your shift starts)</label>
+      <input type="date" id="fDate" class="mono">
+      <div class="hint" id="shiftNote" style="margin-top:6px"></div>
+    </div>
+
+    <div class="field">
+      <label>Patient identifier</label>
+      <input type="text" id="fLabel" placeholder="e.g. Rm 412, MRN, or name">
+    </div>
+
+    <div class="field">
+      <label>Call type</label>
+      <select id="fType">
+        <option value="">Select a type…</option>
+        <option value="Clinical Consultation: Phone">Clinical Consultation: Phone</option>
+        <option value="Clinical Consultation: In Person">Clinical Consultation: In Person</option>
+        <option value="Performing Procedure">Performing Procedure</option>
+        <option value="Reporting On-Call Cases">Reporting On-Call Cases</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Reason / notes (optional)</label>
+      <input type="text" id="fReason" placeholder="Extra detail, e.g. side, artery, or context">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Start time</label>
+        <div class="time24" id="fTime"></div>
+      </div>
+      <div class="field">
+        <label>Finish time</label>
+        <div class="time24" id="fEnd"></div>
+      </div>
+    </div>
+    <div class="duration-readout" id="durationReadout"></div>
+
+    <div class="hint">Patient identifiers and notes are encrypted on this device with your passcode before they're saved.</div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="cancelBtn">Cancel</button>
+      <button class="btn danger" id="deleteBtn" style="display:none">Delete</button>
+      <button class="btn primary" id="saveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="reminderOverlay" style="z-index:120">
+  <div class="sheet" style="text-align:center">
+    <div class="sheet-handle"></div>
+    <div style="font-size:38px;line-height:1;margin:6px 0 10px">🔔</div>
+    <h2 style="margin-bottom:6px">Friday reminder</h2>
+    <p style="font-size:17px;line-height:1.4;margin:0 0 18px;color:var(--text)">Remember to submit your call sheet today!</p>
+    <div class="sheet-actions">
+      <button class="btn primary" id="reminderOkBtn">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay" style="z-index:70">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p class="lock-sub" id="confirmMsg" style="text-align:left"></p>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="confirmCancelBtn">Cancel</button>
+      <button class="btn danger" id="confirmOkBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-scrim" id="drawerScrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+  <h3>Menu</h3>
+  <button class="drawer-item" id="menuReferences">Quick Links <span class="chev">›</span></button>
+  <button class="drawer-item" id="menuArchive">Archive <span class="chev">›</span></button>
+  <button class="drawer-item" id="menuTransfer">Move data between devices <span class="chev">›</span></button>
+</nav>
+
+<div class="overlay" id="transferOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Move data between devices</h2>
+    <div class="hint" style="margin-bottom:14px">Save an encrypted backup file on one device, then import it on the other. Nothing syncs automatically.</div>
+
+    <div class="field">
+      <label>1. Save a backup</label>
+      <input type="password" id="trExpPass" class="mono" autocomplete="off" placeholder="Choose a password for the file">
+    </div>
+    <button class="export-btn" id="trExportBtn" style="margin-top:0">Save backup file</button>
+    <div class="hint" style="margin:8px 0 22px">On the device that has your log: type a password for the file, then tap Save backup file. Send the file to your other device by email, AirDrop or Files. Remember the password, you'll need it to open the file.</div>
+
+    <div class="field">
+      <label>2. Import a backup</label>
+      <input type="file" id="trFile" accept=".json,application/json">
+    </div>
+    <div class="field">
+      <input type="password" id="trImpPass" class="mono" autocomplete="off" placeholder="The file's password">
+    </div>
+    <button class="export-btn" id="trImportBtn" style="margin-top:0">Import into this device</button>
+    <div class="hint" style="margin:8px 0 0">On the device you're moving to: choose the backup file, enter the same password, then tap Import. Entries already on this device are skipped, so importing twice won't create duplicates.</div>
+
+    <div class="lock-error" id="trError"></div>
+    <div class="status-ok" id="trStatus"></div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="trCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="archiveOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Archive</h2>
+    <div class="hint" style="margin-bottom:12px">Your list starts fresh each 1 January. Earlier years are kept here, and you can download each year as an Excel file.</div>
+    <div id="archiveList"></div>
+    <div class="hint" style="margin:6px 0 14px">A call after midnight stays on the day your shift started, so a 31 December shift stays in December's year. To export across New Year, use Export with a custom range (for example 20 Dec to 10 Jan).</div>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="archiveCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="linksOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="linksTitle">Quick Links</h2>
+    <div id="linksList"></div>
+    <div class="hint" id="linksHint" style="margin-bottom:12px"></div>
+    <div id="linkForm">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="linkName" placeholder="e.g. ACR guideline">
+      </div>
+      <div class="field">
+        <label>Link</label>
+        <input type="url" id="linkUrl" placeholder="https://" autocapitalize="off" autocorrect="off">
+      </div>
+      <div class="lock-error" id="linkError"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" id="linksCloseBtn">Close</button>
+      <button class="btn primary" id="linkAddBtn">Add link</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="quietOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Add an on-call day with no calls</h2>
+
+    <div class="field">
+      <label>Date you were on call</label>
+      <input type="date" id="qDate" class="mono">
+    </div>
+
+    <div class="lock-error" id="quietError"></div>
+
+    <div class="hint">Records a day you were on call but weren't called. It shows in your schedule and CSV exports, and doesn't affect your call counts or averages. If you log a call on that date later, this marker is removed automatically.</div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="quietCancelBtn">Cancel</button>
+      <button class="btn primary" id="quietSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="profileOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Your profile</h2>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="pName" placeholder="e.g. Dr A. Smith" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>Employee ID</label>
+      <input type="text" id="pEmpId" class="mono" placeholder="Your hospital employee ID" autocomplete="off">
+    </div>
+
+    <div class="lock-error" id="profileError"></div>
+
+    <div class="hint">Stored encrypted on this device only. It is not verified against any hospital system and isn't shared or synced. It appears on your CSV exports so they're attributable to you.</div>
+
+    <button class="export-btn" id="openSecurityBtn" style="margin-top:0;margin-bottom:14px">Passcode &amp; recovery code</button>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="profileCancelBtn">Cancel</button>
+      <button class="btn primary" id="profileSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="securityOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Passcode &amp; recovery code</h2>
+
+    <div class="field">
+      <label>Current passcode</label>
+      <input type="password" id="sCur" class="mono" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>New passcode</label>
+      <input type="password" id="sNew" class="mono" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Confirm new passcode</label>
+      <input type="password" id="sNew2" class="mono" autocomplete="off">
+    </div>
+
+    <div class="lock-error" id="securityError"></div>
+    <div class="status-ok" id="securityStatus"></div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="securityCloseBtn">Close</button>
+      <button class="btn primary" id="securityChangeBtn">Change passcode</button>
+    </div>
+
+    <div class="hint" style="margin-top:18px;margin-bottom:10px">A new recovery code makes the old one stop working. It needs your current passcode above.</div>
+    <button class="export-btn" id="securityNewCodeBtn" style="margin-top:0">Create a new recovery code</button>
+  </div>
+</div>
+
+<div class="overlay" id="recoveryOverlay" style="z-index:90">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Save your recovery code</h2>
+    <p class="lock-sub" style="text-align:left;margin-bottom:14px">If you ever forget your passcode, this code lets you set a new one <b>without losing any entries</b>. It is shown only once, so write it down or keep it in a password manager. Anyone who has this code and your device can open your log.</p>
+    <div class="recovery-code mono" id="recoveryCode"></div>
+    <button class="export-btn" id="recoveryCopyBtn" style="margin-top:0;margin-bottom:16px">Copy code</button>
+    <label class="check-row"><input type="checkbox" id="recoverySavedChk"> I've saved my recovery code</label>
+    <div class="sheet-actions">
+      <button class="btn primary" id="recoveryDoneBtn" disabled>Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="exportOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Export log</h2>
+
+    <div class="field">
+      <label>Timeframe</label>
+      <select id="exportPreset">
+        <option value="week">This week</option>
+        <option value="month" selected>This month</option>
+        <option value="all">All time</option>
+        <option value="custom">Custom range</option>
+      </select>
+    </div>
+
+    <div class="field-row" id="exportCustomRange" style="display:none">
+      <div class="field">
+        <label>From</label>
+        <input type="date" id="exportFrom" class="mono">
+      </div>
+      <div class="field">
+        <label>To</label>
+        <input type="date" id="exportTo" class="mono">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Format</label>
+      <select id="exportFormat">
+        <option value="xlsx" selected>Excel (.xlsx)</option>
+        <option value="csv">CSV (.csv)</option>
+      </select>
+    </div>
+
+    <div class="hint">Grouped by day, with day totals (and month totals when the range spans more than one month). Excel files also include a monthly summary sheet.</div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="exportCancelBtn">Cancel</button>
+      <button class="btn ghost" id="exportShareBtn" style="display:none">Share</button>
+      <button class="btn primary" id="exportConfirmBtn">Export</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Current storage: a random data key encrypts everything, and is itself locked by the passcode and by a recovery code.
+const KEYRING_KEY = 'oncall-keyring';
+const DATA_KEY = 'oncall-data2';
+const PROFILE_KEY = 'oncall-profile2';
+const QUIET_KEY = 'oncall-quiet2';
+// Older storage: data encrypted directly with the passcode. Converted on the first unlock after the update.
+const SALT_KEY = 'oncall-salt';
+const VERIFIER_KEY = 'oncall-verifier';
+const OLD_DATA_KEY = 'oncall-data';
+const OLD_PROFILE_KEY = 'oncall-profile';
+const OLD_QUIET_KEY = 'oncall-quiet';
+const LEGACY_KEY = 'oncall-calls'; // pre-encryption plaintext, migrated on first setup
+let profile = null;
+let quietDays = []; // dates (YYYY-MM-DD) on call with no calls received
+let viewMode = 'list'; // 'list' | 'calendar'
+let calMonth = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+let selectedDate = null;
+
+let calls = [];
+let editingId = null;
+let activeScope = 'week';
+let expandedDates = new Set();
+let expandedMonths = new Set();
+let cryptoKey = null;
+let lockMode = 'setup'; // 'setup' | 'unlock' | 'recover'
+let hasKeyring = false;
+let pendingRecoveryCode = null;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function nowTimeStr() {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtDuration(mins) {
+  mins = Math.round(mins);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+function fmtDayLabel(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m-1, d);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate()-1);
+  const sameDay = (a,b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  if (sameDay(date, today)) return 'Today';
+  if (sameDay(date, yest)) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/* ---------- storage helpers ---------- */
+/* Uses Claude's window.storage inside Claude; falls back to localStorage when hosted standalone. */
+const _storageShim = {
+  async get(key) { const v = localStorage.getItem(key); return v !== null ? { key, value: v } : null; },
+  async set(key, value) { localStorage.setItem(key, value); return { key, value }; },
+  async delete(key) { localStorage.removeItem(key); return { key, deleted: true }; }
+};
+const _storageAPI = (typeof window.storage !== 'undefined' && window.storage) ? window.storage : _storageShim;
+
+async function storageGet(key) {
+  try { const r = await _storageAPI.get(key, false); return r ? r.value : null; } catch (e) { return null; }
+}
+async function storageSet(key, value) {
+  try { const r = await _storageAPI.set(key, value, false); return !!r; } catch (e) { console.error('Storage error', e); return false; }
+}
+async function storageDelete(key) {
+  try { await _storageAPI.delete(key, false); } catch (e) { /* ignore */ }
+}
+
+/* ---------- crypto helpers (AES-256-GCM, PBKDF2 key derivation) ---------- */
+function bufToB64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64ToBuf(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+async function deriveKey(passcode, saltB64) {
+  const salt = new Uint8Array(b64ToBuf(saltB64));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(passcode), { name: 'PBKDF2' }, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+async function encryptJSON(key, obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.stringify({ iv: bufToB64(iv), data: bufToB64(cipherBuf) });
+}
+async function decryptJSON(key, payloadStr) {
+  const payload = JSON.parse(payloadStr);
+  const iv = new Uint8Array(b64ToBuf(payload.iv));
+  const cipherBuf = b64ToBuf(payload.data);
+  const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBuf);
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+/* ---------- keyring: one random data key, unlockable by passcode OR recovery code ---------- */
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I, O, 0, 1 to avoid mix-ups
+
+function randomSaltB64() { return bufToB64(crypto.getRandomValues(new Uint8Array(16)).buffer); }
+
+function generateRecoveryCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += RECOVERY_ALPHABET[bytes[i] % 32];
+  return out.match(/.{4}/g).join('-');
+}
+function normalizeRecoveryCode(code) {
+  return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+async function generateDataKey() {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+async function wrapDataKey(dek, secret, saltB64) {
+  const kek = await deriveKey(secret, saltB64);
+  const raw = await crypto.subtle.exportKey('raw', dek);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, kek, raw);
+  return { iv: bufToB64(iv), data: bufToB64(ct) };
+}
+async function unwrapDataKey(wrapped, secret, saltB64) {
+  const kek = await deriveKey(secret, saltB64);
+  const raw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(b64ToBuf(wrapped.iv)) }, kek, b64ToBuf(wrapped.data));
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+}
+async function buildKeyring(dek, passcode, recoveryCode) {
+  const passSalt = randomSaltB64(), recSalt = randomSaltB64();
+  return {
+    v: 2, passSalt, recSalt,
+    wrapPass: await wrapDataKey(dek, passcode, passSalt),
+    wrapRec: await wrapDataKey(dek, normalizeRecoveryCode(recoveryCode), recSalt)
+  };
+}
+function openWithPasscode(ring, passcode) { return unwrapDataKey(ring.wrapPass, passcode, ring.passSalt); }
+function openWithRecovery(ring, code) { return unwrapDataKey(ring.wrapRec, normalizeRecoveryCode(code), ring.recSalt); }
+async function rewrapPasscode(ring, dek, newPasscode) {
+  const passSalt = randomSaltB64();
+  return Object.assign({}, ring, { passSalt, wrapPass: await wrapDataKey(dek, newPasscode, passSalt) });
+}
+async function rewrapRecovery(ring, dek, newCode) {
+  const recSalt = randomSaltB64();
+  return Object.assign({}, ring, { recSalt, wrapRec: await wrapDataKey(dek, normalizeRecoveryCode(newCode), recSalt) });
+}
+async function loadKeyring() {
+  const raw = await storageGet(KEYRING_KEY);
+  if (!raw) return null;
+  try { const r = JSON.parse(raw); return (r && r.v === 2) ? r : null; } catch (e) { return null; }
+}
+async function saveKeyring(ring) { return storageSet(KEYRING_KEY, JSON.stringify(ring)); }
+
+async function persistCalls() {
+  if (!cryptoKey) return;
+  const encrypted = await encryptJSON(cryptoKey, calls);
+  const ok = await storageSet(DATA_KEY, encrypted);
+  if (!ok) console.error('Save failed');
+}
+
+/* ---------- lock screen ---------- */
+function showLockScreen(mode) {
+  lockMode = mode;
+  const $ = id => document.getElementById(id);
+  const show = (id, on, disp) => { $(id).style.display = on ? (disp || 'block') : 'none'; };
+  show('lockScreen', true, 'flex');
+  $('app').style.display = 'none';
+  $('fabBtn').style.display = 'none';
+  $('quietOpenBtn').style.display = 'none';
+  $('lockError').textContent = '';
+  $('lockPass1').value = '';
+  $('lockPass2').value = '';
+  $('lockRec').value = '';
+
+  show('lockRecField', mode === 'recover');
+  show('lockConfirmField', mode !== 'unlock');
+  show('lockForgotLink', mode === 'unlock' && hasKeyring, 'inline-block');
+  show('lockBackLink', mode === 'recover', 'inline-block');
+
+  if (mode === 'setup') {
+    $('lockTitle').textContent = 'Set a passcode';
+    $('lockSub').textContent = "This encrypts patient identifiers and notes stored on this device. Choose something you'll remember. You'll also get a one-time recovery code to use if you ever forget it.";
+    $('lockLabel1').textContent = 'Passcode';
+    $('lockLabel2').textContent = 'Confirm passcode';
+    $('lockSubmit').textContent = 'Set passcode & continue';
+  } else if (mode === 'recover') {
+    $('lockTitle').textContent = 'Reset your passcode';
+    $('lockSub').textContent = 'Enter your recovery code and choose a new passcode. Your entries stay exactly as they are.';
+    $('lockLabel1').textContent = 'New passcode';
+    $('lockLabel2').textContent = 'Confirm new passcode';
+    $('lockSubmit').textContent = 'Reset passcode';
+  } else {
+    $('lockTitle').textContent = 'Enter passcode';
+    $('lockSub').textContent = 'Unlock your on-call log.';
+    $('lockLabel1').textContent = 'Passcode';
+    $('lockSubmit').textContent = 'Unlock';
+  }
+  setTimeout(() => $(mode === 'recover' ? 'lockRec' : 'lockPass1').focus(), 50);
+}
+
+function hideLockScreen() {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+function setMostRecentExpanded() {
+  if (calls.length) {
+    const mostRecent = calls.reduce((max, c) => c.date > max ? c.date : max, calls[0].date);
+    expandedDates.add(mostRecent);
+    expandedMonths.add(mostRecent.slice(0, 7));
+  }
+}
+
+async function loadAllData(dek) {
+  // Throws if the saved data can't be decrypted, so a problem never looks like an empty log.
+  const dataPayload = await storageGet(DATA_KEY);
+  const loaded = dataPayload ? await decryptJSON(dek, dataPayload) : [];
+  cryptoKey = dek;
+  calls = Array.isArray(loaded) ? loaded : [];
+  normalizeCallTypes();
+  await loadProfile();
+  await loadQuiet();
+}
+
+function finishUnlock() {
+  setMostRecentExpanded();
+  hideLockScreen();
+  render();
+  maybeShowFridayReminder();
+  const code = pendingRecoveryCode;
+  pendingRecoveryCode = null;
+  if (code) showRecoverySheet(code, () => { if (!profile) openProfileSheet(true); });
+  else if (!profile) openProfileSheet(true);
+}
+
+async function doSetup(pass1, pass2, errorEl) {
+  if (pass1.length < 4) { errorEl.textContent = 'Use at least 4 characters.'; return; }
+  if (pass1 !== pass2) { errorEl.textContent = "Passcodes don't match."; return; }
+
+  const dek = await generateDataKey();
+  const code = generateRecoveryCode();
+  const ring = await buildKeyring(dek, pass1, code);
+
+  let migrated = [];
+  const legacy = await storageGet(LEGACY_KEY);
+  if (legacy) {
+    try { migrated = JSON.parse(legacy); } catch (e) { migrated = []; }
+  }
+
+  const okData = await storageSet(DATA_KEY, await encryptJSON(dek, migrated));
+  const okRing = okData && await saveKeyring(ring);
+  if (!okRing) { errorEl.textContent = "Couldn't save to this device. Check that storage is allowed and try again."; return; }
+  if (legacy) await storageDelete(LEGACY_KEY);
+
+  hasKeyring = true;
+  cryptoKey = dek;
+  calls = Array.isArray(migrated) ? migrated : [];
+  profile = null;
+  quietDays = [];
+  pendingRecoveryCode = code;
+  finishUnlock();
+}
+
+async function doUnlock(pass1, errorEl) {
+  const ring = await loadKeyring();
+  if (ring) {
+    let dek;
+    try { dek = await openWithPasscode(ring, pass1); }
+    catch (e) { errorEl.textContent = 'Incorrect passcode.'; return; }
+    try { await loadAllData(dek); }
+    catch (e) { errorEl.textContent = "Couldn't read your saved data."; return; }
+    finishUnlock();
+    return;
+  }
+
+  // Older storage: data was encrypted directly with the passcode. Convert it on this first unlock.
+  const saltB64 = await storageGet(SALT_KEY);
+  if (!saltB64) { errorEl.textContent = 'Something went wrong loading your setup.'; return; }
+  const oldKey = await deriveKey(pass1, saltB64);
+  try { await decryptJSON(oldKey, await storageGet(VERIFIER_KEY)); }
+  catch (e) { errorEl.textContent = 'Incorrect passcode.'; return; }
+
+  let oldCalls = [], oldProfile = null, oldQuiet = [];
+  try {
+    const d = await storageGet(OLD_DATA_KEY);
+    if (d) oldCalls = await decryptJSON(oldKey, d);
+  } catch (e) { errorEl.textContent = "Couldn't read your saved data."; return; }
+  try { const p = await storageGet(OLD_PROFILE_KEY); if (p) oldProfile = await decryptJSON(oldKey, p); } catch (e) { oldProfile = null; }
+  try { const q = await storageGet(OLD_QUIET_KEY); if (q) oldQuiet = await decryptJSON(oldKey, q); } catch (e) { oldQuiet = []; }
+  if (!Array.isArray(oldCalls)) oldCalls = [];
+  if (!Array.isArray(oldQuiet)) oldQuiet = [];
+
+  const dek = await generateDataKey();
+  const code = generateRecoveryCode();
+  const newRing = await buildKeyring(dek, pass1, code);
+  let ok = await storageSet(DATA_KEY, await encryptJSON(dek, oldCalls));
+  if (ok && oldProfile) ok = await storageSet(PROFILE_KEY, await encryptJSON(dek, oldProfile));
+  if (ok) ok = await storageSet(QUIET_KEY, await encryptJSON(dek, oldQuiet));
+  if (ok) ok = await saveKeyring(newRing); // written last: until it exists, the older data is still the source of truth
+  if (!ok) { errorEl.textContent = "Couldn't update your saved data. Nothing was changed; try again."; return; }
+
+  await storageDelete(SALT_KEY);
+  await storageDelete(VERIFIER_KEY);
+  await storageDelete(OLD_DATA_KEY);
+  await storageDelete(OLD_PROFILE_KEY);
+  await storageDelete(OLD_QUIET_KEY);
+
+  hasKeyring = true;
+  cryptoKey = dek;
+  calls = oldCalls;
+  profile = oldProfile;
+  quietDays = oldQuiet;
+  normalizeCallTypes();
+  pendingRecoveryCode = code;
+  finishUnlock();
+}
+
+async function doRecover(code, pass1, pass2, errorEl) {
+  const ring = await loadKeyring();
+  if (!ring) { errorEl.textContent = 'No recovery code has been set up on this device.'; return; }
+  if (normalizeRecoveryCode(code).length !== 20) { errorEl.textContent = 'Enter the full 20-character recovery code.'; return; }
+  if (pass1.length < 4) { errorEl.textContent = 'Use at least 4 characters for the new passcode.'; return; }
+  if (pass1 !== pass2) { errorEl.textContent = "Passcodes don't match."; return; }
+
+  let dek;
+  try { dek = await openWithRecovery(ring, code); }
+  catch (e) { errorEl.textContent = "That recovery code isn't right."; return; }
+  try { await loadAllData(dek); }
+  catch (e) { errorEl.textContent = "Couldn't read your saved data."; return; }
+
+  const newRing = await rewrapPasscode(ring, dek, pass1);
+  if (!await saveKeyring(newRing)) {
+    cryptoKey = null; calls = []; profile = null; quietDays = [];
+    errorEl.textContent = "Couldn't save the new passcode. Nothing was changed; try again.";
+    return;
+  }
+  finishUnlock();
+}
+
+async function handleLockSubmit() {
+  const pass1 = document.getElementById('lockPass1').value;
+  const pass2 = document.getElementById('lockPass2').value;
+  const rec = document.getElementById('lockRec').value;
+  const errorEl = document.getElementById('lockError');
+  errorEl.textContent = '';
+
+  if (lockMode === 'recover') return doRecover(rec, pass1, pass2, errorEl);
+  if (!pass1) { errorEl.textContent = 'Enter a passcode.'; return; }
+  if (lockMode === 'setup') return doSetup(pass1, pass2, errorEl);
+  return doUnlock(pass1, errorEl);
+}
+
+function normalizeCallTypes() {
+  // Keep older entries consistent with the current call type wording.
+  calls.forEach(c => {
+    if (c.type === 'Clinical Consultation - In Person') c.type = 'Clinical Consultation: In Person';
+    if (c.type === 'Reporting' || c.type === 'On Call Cases') c.type = 'Reporting On-Call Cases';
+  });
+}
+
+function lockNow() {
+  try { closeDrawer(); ['linksOverlay', 'transferOverlay', 'archiveOverlay'].forEach(id => document.getElementById(id).classList.remove('open')); } catch (e) {}
+  cryptoKey = null;
+  profile = null;
+  quietDays = [];
+  calls = [];
+  expandedDates = new Set();
+  expandedMonths = new Set();
+  showLockScreen('unlock');
+}
+
+let _confirmResolve = null;
+function askConfirm(title, message, okLabel) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMsg').textContent = message;
+    document.getElementById('confirmOkBtn').textContent = okLabel || 'Delete';
+    document.getElementById('confirmOverlay').classList.add('open');
+  });
+}
+function closeConfirm(result) {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+}
+document.getElementById('confirmOkBtn').addEventListener('click', () => closeConfirm(true));
+document.getElementById('confirmCancelBtn').addEventListener('click', () => closeConfirm(false));
+document.getElementById('confirmOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'confirmOverlay') closeConfirm(false);
+});
+
+/* ---------- Friday reminder ---------- */
+const REMINDER_KEY = 'oncall-reminder-day';
+async function maybeShowFridayReminder(force) {
+  const now = new Date();
+  if (!force && now.getDay() !== 5) return; // 5 = Friday
+  const today = todayStr();
+  if (!force) {
+    try { if ((await storageGet(REMINDER_KEY)) === today) return; } catch (e) {}
+  }
+  // Wait until any other sheet (recovery code, profile...) has been closed, so they never stack.
+  for (let i = 0; i < 150 && document.querySelector('.overlay.open:not(#reminderOverlay)'); i++) {
+    await new Promise(r => setTimeout(r, 800));
+  }
+  if (document.getElementById('lockScreen').style.display !== 'none') return; // locked again meanwhile
+  document.getElementById('reminderOverlay').classList.add('open');
+  if (!force) { try { await storageSet(REMINDER_KEY, today); } catch (e) {} }
+}
+document.getElementById('reminderOkBtn').addEventListener('click', () => document.getElementById('reminderOverlay').classList.remove('open'));
+
+/* ---------- stats ---------- */
+function scopeCutoff(scope) {
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  if (scope === 'all') { const [vy, vm, vd] = viewStartStr().split('-').map(Number); return new Date(vy, vm - 1, vd); }
+  if (scope === 'week') d.setDate(d.getDate() - 7);
+  else if (scope === 'month') d.setDate(d.getDate() - 30);
+  else return null;
+  return d;
+}
+function computeStats(scope) {
+  const cutoff = scopeCutoff(scope);
+  const filtered = calls.filter(c => {
+    if (!cutoff) return true;
+    const [y,m,d] = c.date.split('-').map(Number);
+    return new Date(y, m-1, d) >= cutoff;
+  });
+  const totalMins = filtered.reduce((s,c) => s + (c.durationMinutes || 0), 0);
+  const count = filtered.length;
+  const avg = count ? totalMins / count : 0;
+  return { count, totalMins, avg };
+}
+
+/* ---------- render ---------- */
+function render() {
+  const app = document.getElementById('app');
+  const fab = document.getElementById('fabBtn');
+  fab.style.display = 'block';
+  document.getElementById('quietOpenBtn').style.display = 'block';
+
+  const stats = computeStats(activeScope);
+
+  const grouped = {};
+  [...calls].sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time)).forEach(c => {
+    if (!grouped[c.date]) grouped[c.date] = [];
+    grouped[c.date].push(c);
+  });
+  const viewStart = viewStartStr();
+  const dates = [...new Set([...Object.keys(grouped), ...quietDays])].filter(d => d >= viewStart).sort().reverse();
+
+  let html = `
+    <header>
+      <div class="header-top">
+        <div class="brand-row">
+          <button class="menu-btn" id="menuBtn" aria-label="Open menu"><span></span><span></span><span></span></button>
+          <div class="brand-mark">
+            <!-- BACKUP: formal geometric-stroke IR monogram, restore on request:
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 5 L35 32 L5 32 Z" fill="var(--amber)" stroke="var(--amber)" stroke-width="5" stroke-linejoin="round"/>
+              <g transform="translate(0,2)" stroke="#052321" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 14 L13 28"/>
+                <path d="M19 14 L19 28"/>
+                <path d="M19 14 L24 14 L24 19 L19 19"/>
+                <path d="M19 19 L27 28"/>
+                <circle cx="27" cy="28" r="1" fill="#052321" stroke="none"/>
+              </g>
+            </svg>
+            -->
+            <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 5 L35 32 L5 32 Z" fill="var(--amber)" stroke="var(--amber)" stroke-width="5" stroke-linejoin="round"/>
+              <text x="20" y="23" text-anchor="middle" dominant-baseline="central" font-family="'Space Grotesk', sans-serif" font-weight="700" font-size="14" fill="#052321">IR</text>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-org">Auckland City Hospital</div>
+            <h1>On-Call Log</h1>
+          </div>
+        </div>
+        <button class="lock-now-btn" id="lockNowBtn" title="Lock now">🔒 Lock</button>
+      </div>
+      <button class="profile-chip" id="profileBtn">${profile ? escapeHtml(profile.name) + ' · ID ' + escapeHtml(profile.empId) : 'Add your name &amp; employee ID'}</button>
+      <div class="stats-row">
+        <button class="scope-btn ${activeScope==='week'?'active':''}" data-scope="week">This week</button>
+        <button class="scope-btn ${activeScope==='month'?'active':''}" data-scope="month">This month</button>
+        <button class="scope-btn ${activeScope==='all'?'active':''}" data-scope="all">This year</button>
+        ${(calls.length || quietDays.length) ? `<button class="export-icon-btn" id="exportOpenBtn" aria-label="Export log" title="Export log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M12 15l-4-4M12 15l4-4M4 17v3h16v-3"/></svg></button>` : ''}
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="num mono">${stats.count}</div><div class="label">Calls</div></div>
+        <div class="stat-card"><div class="num mono">${fmtDuration(stats.totalMins)}</div><div class="label">Time spent</div></div>
+        <div class="stat-card"><div class="num mono">${fmtDuration(stats.avg)}</div><div class="label">Avg / call</div></div>
+      </div>
+      ${''}
+    </header>
+  `;
+
+  html += `
+    <div class="view-toggle">
+      <button class="view-btn ${viewMode === 'list' ? 'active' : ''}" data-view="list">List</button>
+      <button class="view-btn ${viewMode === 'calendar' ? 'active' : ''}" data-view="calendar">Calendar</button>
+    </div>
+  `;
+
+  if (viewMode === 'calendar') {
+    html += buildCalendarHtml(grouped);
+  } else if (dates.length === 0) {
+    html += `
+      <div class="empty-state">
+        <div class="big">No calls logged yet</div>
+        <div>Tap "Log a call" below to add your first one.</div>
+      </div>
+    `;
+  } else {
+    const monthOrder = [];
+    const monthMap = {};
+    dates.forEach(date => {
+      const k = date.slice(0, 7);
+      if (!monthMap[k]) { monthMap[k] = []; monthOrder.push(k); }
+      monthMap[k].push(date);
+    });
+
+    monthOrder.forEach(monthKey => {
+      const [my, mm] = monthKey.split('-').map(Number);
+      const monthLabel = new Date(my, mm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      let monthCalls = 0, monthMins = 0, monthQuiet = 0;
+      monthMap[monthKey].forEach(d => {
+        const dc = grouped[d] || [];
+        monthCalls += dc.length;
+        monthMins += dc.reduce((s, c) => s + (c.durationMinutes || 0), 0);
+        if (!dc.length) monthQuiet++;
+      });
+      const monthOpen = expandedMonths.has(monthKey);
+      html += `
+        <div class="month-group ${monthOpen ? 'open' : ''}">
+          <div class="month-heading" data-month="${monthKey}">
+            <span class="month-label">${monthLabel}</span>
+            <span class="month-meta">${monthCalls} call${monthCalls === 1 ? '' : 's'} · ${fmtDuration(monthMins)}${monthQuiet ? ' · ' + monthQuiet + ' no-call day' + (monthQuiet === 1 ? '' : 's') : ''} <span class="day-chevron ${monthOpen ? 'open' : ''}"></span></span>
+          </div>
+          <div class="month-days ${monthOpen ? 'open' : ''}">
+      `;
+
+    monthMap[monthKey].forEach(date => {
+      const dayCalls = grouped[date] || [];
+      const dayTotal = dayCalls.reduce((s,c) => s + (c.durationMinutes||0), 0);
+      const isOpen = expandedDates.has(date);
+      html += `
+        <div class="day-group ${isOpen ? 'open' : ''}">
+          <div class="day-heading" data-date="${date}">
+            <span class="day-label">${fmtDayLabel(date)}${holidayName(date) ? `<span class="holiday-tag">${escapeHtml(holidayName(date))}</span>` : ''}</span>
+            <span class="day-meta">${dayCalls.length ? dayCalls.length + ' call' + (dayCalls.length===1?'':'s') + ' · ' + fmtDuration(dayTotal) : 'No calls'} <span class="day-chevron ${isOpen?'open':''}"></span></span>
+          </div>
+          <div class="day-calls ${isOpen ? 'open' : ''}">
+      `;
+      if (!dayCalls.length) {
+        html += `
+          <div class="quiet-row" data-quiet="${date}">
+            <div class="call-body">
+              <div class="call-label">On call – no calls received</div>
+            </div>
+            <button class="quiet-delete" data-quiet="${date}">Delete</button>
+          </div>
+        `;
+      }
+      dayCalls.forEach(c => {
+        html += `
+          <div class="call-row" data-id="${c.id}">
+            <div class="call-time mono">${c.time}${nextDayTag(c.time)}</div>
+            <div class="call-body">
+              <div class="call-label">${escapeHtml(c.label || 'Unlabeled')}</div>
+              ${(c.type || c.reason) ? `<div class="call-reason">${c.type ? `<span class="call-type-tag">${escapeHtml(c.type)}</span>` : ''}${c.reason ? escapeHtml(c.reason) : ''}</div>` : ''}
+            </div>
+            <div class="call-side"><div class="call-duration">${fmtDuration(c.durationMinutes||0)}</div><button class="row-delete" data-id="${c.id}">Delete</button></div>
+          </div>
+        `;
+      });
+      html += `</div></div>`;
+    });
+      html += `</div></div>`;
+    });
+  }
+
+  app.innerHTML = html;
+
+  document.getElementById('lockNowBtn').addEventListener('click', lockNow);
+  document.getElementById('menuBtn').addEventListener('click', openDrawer);
+  document.getElementById('profileBtn').addEventListener('click', () => openProfileSheet(false));
+
+  const exportOpenBtn = document.getElementById('exportOpenBtn');
+  if (exportOpenBtn) exportOpenBtn.addEventListener('click', openExportSheet);
+
+  document.querySelectorAll('.quiet-delete').forEach(btn => {
+    btn.addEventListener('click', () => removeQuietDay(btn.dataset.quiet));
+  });
+
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      viewMode = btn.dataset.view;
+      if (viewMode === 'calendar' && !selectedDate) {
+        selectedDate = todayStr();
+        const d = new Date();
+        calMonth = { y: d.getFullYear(), m: d.getMonth() };
+      }
+      render();
+    });
+  });
+  document.querySelectorAll('.cal-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      let m = calMonth.m + Number(btn.dataset.delta), y = calMonth.y;
+      if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+      calMonth = { y, m };
+      selectedDate = null;
+      render();
+    });
+  });
+  const calTodayBtn = document.getElementById('calTodayBtn');
+  if (calTodayBtn) calTodayBtn.addEventListener('click', () => {
+    const d = new Date();
+    calMonth = { y: d.getFullYear(), m: d.getMonth() };
+    selectedDate = todayStr();
+    render();
+  });
+  document.querySelectorAll('.cal-cell[data-date]').forEach(cell => {
+    cell.addEventListener('click', () => { selectedDate = cell.dataset.date; render(); });
+  });
+
+  document.querySelectorAll('.scope-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeScope = btn.dataset.scope;
+      render();
+    });
+  });
+
+  document.querySelectorAll('.month-heading').forEach(h => {
+    h.addEventListener('click', () => {
+      const k = h.dataset.month;
+      if (expandedMonths.has(k)) expandedMonths.delete(k);
+      else expandedMonths.add(k);
+      render();
+    });
+  });
+
+  document.querySelectorAll('.day-heading').forEach(heading => {
+    heading.addEventListener('click', () => {
+      const date = heading.dataset.date;
+      if (expandedDates.has(date)) expandedDates.delete(date);
+      else expandedDates.add(date);
+      render();
+    });
+  });
+
+  document.querySelectorAll('.row-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteCallById(btn.dataset.id);
+    });
+  });
+
+  document.querySelectorAll('.call-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSheet(row.dataset.id);
+    });
+  });
+}
+
+/* ---------- NZ public holidays ---------- */
+// Matariki dates are set by Schedule 1 of the Te Kāhui o Matariki Public Holiday Act 2022.
+// Add further years here as needed.
+const MATARIKI_DATES = {
+  2022: '06-24', 2023: '07-14', 2024: '06-28', 2025: '06-20', 2026: '07-10',
+  2027: '06-25', 2028: '07-14', 2029: '07-06', 2030: '06-21', 2031: '07-11',
+  2032: '07-02', 2033: '06-24', 2034: '07-07', 2035: '06-29', 2036: '07-18',
+  2037: '07-10', 2038: '06-25', 2039: '07-15', 2040: '07-06', 2041: '07-19',
+  2042: '07-11', 2043: '07-03', 2044: '06-24', 2045: '07-07', 2046: '06-29',
+  2047: '07-19', 2048: '07-03', 2049: '06-25', 2050: '07-15', 2051: '06-30',
+  2052: '06-21',
+};
+const _nzHolCache = {};
+
+function easterSunday(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+
+function nzHolidaysForYear(y) {
+  if (_nzHolCache[y]) return _nzHolCache[y];
+  const map = {};
+  const key = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const add = (d, name) => { const k = key(d); map[k] = map[k] ? map[k] + ' / ' + name : name; };
+
+  // Fixed-date holidays: the actual date, plus the observed (Mondayised) date when it falls on a weekend.
+  // 'twoDays' (New Year, Christmas, etc.): Sat -> Mon, Sun -> Tue.  'monday' (Waitangi, Anzac): Sat/Sun -> Mon.
+  const fixed = (month, day, name, rule) => {
+    const d = new Date(y, month, day);
+    add(d, name);
+    const wd = d.getDay();
+    if (wd === 6 || wd === 0) {
+      const obs = rule === 'twoDays' ? addDays(d, 2) : addDays(d, wd === 6 ? 2 : 1);
+      add(obs, name + ' (observed)');
+    }
+  };
+  fixed(0, 1, "New Year's Day", 'twoDays');
+  fixed(0, 2, "Day after New Year's Day", 'twoDays');
+  fixed(1, 6, 'Waitangi Day', 'monday');
+  fixed(3, 25, 'Anzac Day', 'monday');
+  fixed(11, 25, 'Christmas Day', 'twoDays');
+  fixed(11, 26, 'Boxing Day', 'twoDays');
+
+  const easter = easterSunday(y);
+  add(addDays(easter, -2), 'Good Friday');
+  add(addDays(easter, 1), 'Easter Monday');
+
+  let kb = new Date(y, 5, 1);                       // King's Birthday: first Monday in June
+  while (kb.getDay() !== 1) kb = addDays(kb, 1);
+  add(kb, "King's Birthday");
+
+  let ld = new Date(y, 9, 1);                       // Labour Day: fourth Monday in October
+  while (ld.getDay() !== 1) ld = addDays(ld, 1);
+  add(addDays(ld, 21), 'Labour Day');
+
+  if (MATARIKI_DATES[y]) {
+    const [mm, dd] = MATARIKI_DATES[y].split('-').map(Number);
+    add(new Date(y, mm - 1, dd), 'Matariki');
+  }
+
+  // Auckland Anniversary Day (regional): the Monday nearest 29 January
+  const jan29 = new Date(y, 0, 29);
+  const shift = { 1: 0, 2: -1, 3: -2, 4: -3, 5: 3, 6: 2, 0: 1 }[jan29.getDay()];
+  add(addDays(jan29, shift), 'Auckland Anniversary Day');
+
+  _nzHolCache[y] = map;
+  return map;
+}
+
+function holidayName(dateStr) {
+  return nzHolidaysForYear(Number(dateStr.slice(0, 4)))[dateStr] || '';
+}
+/* ---------- end NZ public holidays ---------- */
+
+function buildCalendarHtml(grouped) {
+  const { y, m } = calMonth;
+  const monthLabel = new Date(y, m, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const lead = (new Date(y, m, 1).getDay() + 6) % 7; // Monday-first
+  const prefix = `${y}-${pad(m + 1)}-`;
+  const monthCalls = calls.filter(c => c.date.startsWith(prefix));
+  const monthMins = monthCalls.reduce((s, c) => s + (c.durationMinutes || 0), 0);
+  const today = todayStr();
+  const nzHol = nzHolidaysForYear(y);
+
+  let h = `
+    <div class="cal-head">
+      <button class="cal-nav-btn" data-delta="-1" aria-label="Previous month">‹</button>
+      <div class="cal-title">${monthLabel}</div>
+      <button class="cal-nav-btn" data-delta="1" aria-label="Next month">›</button>
+    </div>
+    <div class="cal-summary mono">${monthCalls.length} call${monthCalls.length===1?'':'s'} · ${fmtDuration(monthMins)} this month <button class="cal-today-btn" id="calTodayBtn">Today</button></div>
+    <div class="cal-grid">
+      ${['M','T','W','T','F','S','S'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+  `;
+  for (let i = 0; i < lead; i++) h += `<div class="cal-cell blank"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = prefix + pad(d);
+    const n = (grouped[ds] || []).length;
+    const quiet = !n && quietDays.includes(ds);
+    h += `<button class="cal-cell ${ds === today ? 'today' : ''} ${ds === selectedDate ? 'selected' : ''} ${nzHol[ds] ? 'holiday' : ''}" data-date="${ds}" title="${nzHol[ds] ? escapeHtml(nzHol[ds]) : ''}"><span>${d}</span>${n ? `<span class="cal-badge">${n}</span>` : quiet ? `<span class="cal-quiet">0</span>` : ''}</button>`;
+  }
+  h += `</div><div class="cal-legend"><span class="cal-badge">n</span> calls logged &nbsp;&nbsp; <span class="cal-quiet">0</span> on call, no calls &nbsp;&nbsp; <span class="cal-hol-dot"></span>NZ public holiday</div>`;
+
+  if (selectedDate) {
+    const [sy, sm, sd] = selectedDate.split('-').map(Number);
+    const label = new Date(sy, sm - 1, sd).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    const dayCalls = grouped[selectedDate] || [];
+    const isQuiet = !dayCalls.length && quietDays.includes(selectedDate);
+    const dayTotal = dayCalls.reduce((s, c) => s + (c.durationMinutes || 0), 0);
+    h += `<div class="cal-detail-head"><span class="day-label">${label}${holidayName(selectedDate) ? `<span class="holiday-tag">${escapeHtml(holidayName(selectedDate))}</span>` : ''}</span><span class="day-meta">${dayCalls.length ? dayCalls.length + ' call' + (dayCalls.length === 1 ? '' : 's') + ' · ' + fmtDuration(dayTotal) : (isQuiet ? 'No calls' : '')}</span></div>`;
+    dayCalls.forEach(c => {
+      h += `
+        <div class="call-row" data-id="${c.id}">
+          <div class="call-time mono">${c.time}${nextDayTag(c.time)}</div>
+          <div class="call-body">
+            <div class="call-label">${escapeHtml(c.label || 'Unlabeled')}</div>
+            ${(c.type || c.reason) ? `<div class="call-reason">${c.type ? `<span class="call-type-tag">${escapeHtml(c.type)}</span>` : ''}${c.reason ? escapeHtml(c.reason) : ''}</div>` : ''}
+          </div>
+          <div class="call-side"><div class="call-duration">${fmtDuration(c.durationMinutes || 0)}</div><button class="row-delete" data-id="${c.id}">Delete</button></div>
+        </div>`;
+    });
+    if (isQuiet) {
+      h += `
+        <div class="quiet-row" data-quiet="${selectedDate}">
+          <div class="call-body">
+            <div class="call-label">On call – no calls received</div>
+            </div>
+            <button class="quiet-delete" data-quiet="${selectedDate}">Delete</button>
+          </div>`;
+    } else if (!dayCalls.length) {
+      h += `<div class="cal-empty">No entries on this day.</div>`;
+    }
+  } else {
+    h += `<div class="cal-empty" style="margin-top:18px">Tap a day to see its entries.</div>`;
+  }
+  return h;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// 24-hour time picker: a typeable hour box plus a minute list in 15-minute steps. The container exposes a normal
+// `.value` ("HH:MM" or "") so the rest of the code can treat it like an input.
+function setupTime24(id) {
+  const el = document.getElementById(id);
+  const MINUTES = ['00', '15', '30', '45'];
+  el.innerHTML = `<input class="t24-h" type="text" inputmode="numeric" maxlength="2" placeholder="HH" autocomplete="off" aria-label="Hour, 24-hour"><span class="t24-sep">:</span><div class="t24-mwrap"><input class="t24-m" type="text" inputmode="numeric" maxlength="2" placeholder="MM" autocomplete="off" aria-label="Minutes"><button type="button" class="t24-arrow" tabindex="-1" aria-label="Choose minutes in 15-minute steps"></button><div class="t24-menu" role="listbox">${MINUTES.map(m => `<button type="button" class="t24-opt" data-m="${m}">${m}</button>`).join('')}</div></div>`;
+  const hIn = el.querySelector('.t24-h');
+  const mIn = el.querySelector('.t24-m');
+  const arrow = el.querySelector('.t24-arrow');
+  const menu = el.querySelector('.t24-menu');
+  const fire = () => el.dispatchEvent(new Event('input', { bubbles: true }));
+  const closeMenu = () => menu.classList.remove('open');
+
+  hIn.addEventListener('input', () => {
+    let v = hIn.value.replace(/\D/g, '').slice(0, 2);
+    if (v.length === 1 && Number(v) > 2) v = '0' + v;   // 3-9 can only be a one-digit hour
+    if (v.length === 2 && Number(v) > 23) v = '23';
+    hIn.value = v;
+    if (v && !mIn.value) mIn.value = '00';
+    if (v.length === 2) { mIn.focus(); mIn.select(); }
+  });
+  hIn.addEventListener('blur', () => {
+    if (hIn.value.length === 1) hIn.value = '0' + hIn.value;
+  });
+
+  mIn.addEventListener('input', () => {
+    let v = mIn.value.replace(/\D/g, '').slice(0, 2);
+    if (v.length === 1 && Number(v) > 5) v = '0' + v;   // 6-9 can only be a one-digit minute
+    if (v.length === 2 && Number(v) > 59) v = '59';
+    mIn.value = v;
+    closeMenu();
+  });
+  mIn.addEventListener('blur', () => {
+    if (mIn.value.length === 1) mIn.value = '0' + mIn.value;
+    fire();
+  });
+  mIn.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const cur = Number(mIn.value || 0);
+      const next = e.key === 'ArrowDown'
+        ? (MINUTES.map(Number).find(x => x > cur) ?? 0)
+        : ([...MINUTES.map(Number)].reverse().find(x => x < cur) ?? 45);
+      mIn.value = pad(next);
+      fire();
+    }
+  });
+
+  arrow.addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.t24-menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+    menu.classList.toggle('open');
+  });
+  menu.addEventListener('click', e => {
+    const opt = e.target.closest('.t24-opt');
+    if (!opt) return;
+    mIn.value = opt.dataset.m;
+    if (!hIn.value) hIn.focus();
+    closeMenu();
+    fire();
+  });
+  document.addEventListener('click', e => { if (!el.contains(e.target)) closeMenu(); });
+
+  Object.defineProperty(el, 'value', {
+    get() { return (hIn.value && mIn.value) ? pad(Number(hIn.value)) + ':' + pad(Number(mIn.value)) : ''; },
+    set(v) {
+      closeMenu();
+      if (!v) { hIn.value = ''; mIn.value = ''; return; }
+      const [h, m] = v.split(':');
+      hIn.value = pad(Number(h));
+      mIn.value = pad(Number(m));
+    }
+  });
+}
+
+function nowTimeFloor15() {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(Math.floor(d.getMinutes() / 15) * 15)}`;
+}
+
+function timeToMin(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+function minutesBetween(start, end) {
+  const s = timeToMin(start), e = timeToMin(end);
+  if (s === null || e === null) return 0;
+  let diff = e - s;
+  if (diff < 0) diff += 1440; // finished after midnight
+  return diff;
+}
+function addMinutesToTime(t, mins) {
+  const s = timeToMin(t);
+  if (s === null) return '';
+  const total = (s + Math.round(mins)) % 1440;
+  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
+function callEndTime(c) {
+  // Older entries only stored a duration, so work the finish time out from the start.
+  return c.endTime || (c.durationMinutes ? addMinutesToTime(c.time, c.durationMinutes) : '');
+}
+const SHIFT_END_MIN = 7 * 60 + 30; // every on-call day ends at 07:30 the next morning
+function isNextDayTime(t) { const m = timeToMin(t); return m !== null && m < SHIFT_END_MIN; }
+function nextDayTag(t) { return isNextDayTime(t) ? '<span class="next-day-tag">next morning</span>' : ''; }
+function updateShiftNote() {
+  const el = document.getElementById('shiftNote');
+  const d = document.getElementById('fDate').value;
+  const t = document.getElementById('fTime').value;
+  if (!d) { el.textContent = ''; return; }
+  const [y, m, day] = d.split('-').map(Number);
+  const fmt = dt => dt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const shiftDay = new Date(y, m - 1, day);
+  const dow = shiftDay.getDay(); // 0 Sun, 6 Sat
+  const weekend = dow === 0 || dow === 6;
+  const hours = weekend ? '07:30 to 07:30 the next morning' : '17:30 to 07:30 the next morning';
+  let msg = `${fmt(shiftDay)} on-call: ${hours}. `;
+  if (t && isNextDayTime(t)) {
+    msg += `${t} is the morning of ${fmt(new Date(y, m - 1, day + 1))}, counted on your ${fmt(shiftDay)} shift.`;
+  } else {
+    msg += 'Times before 07:30 are the next morning but stay on this day.';
+  }
+  el.textContent = msg;
+}
+function updateDurationReadout() {
+  updateShiftNote();
+  const start = document.getElementById('fTime').value;
+  const end = document.getElementById('fEnd').value;
+  const el = document.getElementById('durationReadout');
+  if (!start || !end) { el.textContent = 'Add a finish time to record time spent'; return; }
+  const overnight = timeToMin(end) < timeToMin(start);
+  el.textContent = 'Time spent: ' + fmtDuration(minutesBetween(start, end)) + (overnight ? ' (finishes after midnight)' : '');
+}
+
+// In calendar view, the day you've selected pre-fills the bottom buttons.
+function defaultEntryDate() {
+  return (viewMode === 'calendar' && selectedDate) ? selectedDate : todayStr();
+}
+
+function openSheet(id) {
+  editingId = id || null;
+  const overlay = document.getElementById('overlay');
+  const deleteBtn = document.getElementById('deleteBtn');
+  document.querySelectorAll('#fType option[data-legacy]').forEach(o => o.remove());
+
+  if (editingId) {
+    const c = calls.find(c => c.id === editingId);
+    document.getElementById('sheetTitle').textContent = 'Edit call';
+    document.getElementById('fDate').value = c.date;
+    document.getElementById('fTime').value = c.time;
+    document.getElementById('fLabel').value = c.label || '';
+    const typeSel = document.getElementById('fType');
+    if (c.type && ![...typeSel.options].some(o => o.value === c.type)) {
+      const o = document.createElement('option');
+      o.value = c.type; o.textContent = c.type + ' (previous)'; o.dataset.legacy = '1';
+      typeSel.appendChild(o);
+    }
+    typeSel.value = c.type || '';
+    document.getElementById('fReason').value = c.reason || '';
+    document.getElementById('fEnd').value = callEndTime(c);
+    deleteBtn.style.display = 'block';
+  } else {
+    document.getElementById('sheetTitle').textContent = 'Log a call';
+    document.getElementById('fDate').value = defaultEntryDate();
+    document.getElementById('fTime').value = nowTimeFloor15();
+    document.getElementById('fLabel').value = '';
+    document.getElementById('fType').value = '';
+    document.getElementById('fReason').value = '';
+    document.getElementById('fEnd').value = '';
+    deleteBtn.style.display = 'none';
+  }
+  updateDurationReadout();
+  overlay.classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  editingId = null;
+}
+
+async function saveCall() {
+  const date = document.getElementById('fDate').value || todayStr();
+  const time = document.getElementById('fTime').value || nowTimeStr();
+  const label = document.getElementById('fLabel').value.trim();
+  const type = document.getElementById('fType').value;
+  const reason = document.getElementById('fReason').value.trim();
+  const endTime = document.getElementById('fEnd').value;
+  const durationMinutes = minutesBetween(time, endTime);
+
+  if (editingId) {
+    const c = calls.find(c => c.id === editingId);
+    Object.assign(c, { date, time, endTime, label, type, reason, durationMinutes });
+  } else {
+    calls.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      date, time, endTime, label, type, reason, durationMinutes
+    });
+  }
+
+  expandedMonths.add(date.slice(0, 7));
+  if (quietDays.includes(date)) {
+    quietDays = quietDays.filter(d => d !== date);
+    await persistQuiet();
+  }
+
+  await persistCalls();
+  closeSheet();
+  render();
+}
+
+async function deleteCall() {
+  const id = editingId;
+  if (!id) return;
+  if (!await askConfirm('Delete call', "Delete this logged call? This can't be undone.")) return;
+  calls = calls.filter(c => c.id !== id);
+  await persistCalls();
+  closeSheet();
+  render();
+}
+
+async function deleteCallById(id) {
+  if (!await askConfirm('Delete call', "Delete this logged call? This can't be undone.")) return;
+  calls = calls.filter(c => c.id !== id);
+  await persistCalls();
+  render();
+}
+
+/* ---------- no-call days ---------- */
+async function loadQuiet() {
+  quietDays = [];
+  const q = await storageGet(QUIET_KEY);
+  if (q && cryptoKey) {
+    try {
+      const arr = await decryptJSON(cryptoKey, q);
+      if (Array.isArray(arr)) quietDays = arr;
+    } catch (e) { quietDays = []; }
+  }
+}
+
+async function persistQuiet() {
+  if (cryptoKey) await storageSet(QUIET_KEY, await encryptJSON(cryptoKey, quietDays));
+}
+
+function openQuietSheet() {
+  document.getElementById('qDate').value = defaultEntryDate();
+  document.getElementById('quietError').textContent = '';
+  document.getElementById('quietOverlay').classList.add('open');
+}
+
+function closeQuietSheet() {
+  document.getElementById('quietOverlay').classList.remove('open');
+}
+
+async function handleQuietSave() {
+  const date = document.getElementById('qDate').value;
+  const errorEl = document.getElementById('quietError');
+  if (!date) { errorEl.textContent = 'Pick a date.'; return; }
+  if (calls.some(c => c.date === date)) { errorEl.textContent = 'You already have calls logged on that date.'; return; }
+  if (quietDays.includes(date)) { errorEl.textContent = 'That day is already marked as no calls.'; return; }
+  quietDays.push(date);
+  quietDays.sort();
+  await persistQuiet();
+  expandedDates.add(date);
+  expandedMonths.add(date.slice(0, 7));
+  closeQuietSheet();
+  render();
+}
+
+async function removeQuietDay(date) {
+  if (!await askConfirm('Delete on-call day', 'Delete this on-call day (no calls) from your log?')) return;
+  quietDays = quietDays.filter(d => d !== date);
+  await persistQuiet();
+  render();
+}
+
+document.getElementById('quietSaveBtn').addEventListener('click', handleQuietSave);
+document.getElementById('quietCancelBtn').addEventListener('click', closeQuietSheet);
+document.getElementById('quietOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'quietOverlay') closeQuietSheet();
+});
+
+/* ---------- profile ---------- */
+let profileRequired = false;
+
+async function loadProfile() {
+  profile = null;
+  const p = await storageGet(PROFILE_KEY);
+  if (p && cryptoKey) {
+    try { profile = await decryptJSON(cryptoKey, p); } catch (e) { profile = null; }
+  }
+}
+
+function openProfileSheet(required) {
+  profileRequired = !!required;
+  document.getElementById('pName').value = profile ? profile.name : '';
+  document.getElementById('pEmpId').value = profile ? profile.empId : '';
+  document.getElementById('profileError').textContent = '';
+  document.getElementById('profileCancelBtn').style.display = profileRequired ? 'none' : 'block';
+  document.getElementById('openSecurityBtn').style.display = profileRequired ? 'none' : 'block';
+  document.getElementById('profileOverlay').classList.add('open');
+}
+
+function closeProfileSheet() {
+  document.getElementById('profileOverlay').classList.remove('open');
+}
+
+async function handleProfileSave() {
+  const name = document.getElementById('pName').value.trim();
+  const empId = document.getElementById('pEmpId').value.trim();
+  if (!name || !empId) {
+    document.getElementById('profileError').textContent = 'Enter both your name and employee ID.';
+    return;
+  }
+  profile = { name, empId };
+  if (cryptoKey) await storageSet(PROFILE_KEY, await encryptJSON(cryptoKey, profile));
+  closeProfileSheet();
+  render();
+}
+
+document.getElementById('profileSaveBtn').addEventListener('click', handleProfileSave);
+document.getElementById('profileCancelBtn').addEventListener('click', closeProfileSheet);
+document.getElementById('profileOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'profileOverlay' && !profileRequired) closeProfileSheet();
+});
+
+/* ---------- recovery code + passcode settings ---------- */
+let _recoveryDone = null;
+
+function showRecoverySheet(code, onDone) {
+  _recoveryDone = onDone || null;
+  document.getElementById('recoveryCode').textContent = code;
+  document.getElementById('recoverySavedChk').checked = false;
+  document.getElementById('recoveryDoneBtn').disabled = true;
+  document.getElementById('recoveryCopyBtn').textContent = 'Copy code';
+  document.getElementById('recoveryOverlay').classList.add('open');
+}
+
+async function copyRecoveryCode() {
+  const btn = document.getElementById('recoveryCopyBtn');
+  const code = document.getElementById('recoveryCode').textContent;
+  try {
+    await navigator.clipboard.writeText(code);
+    btn.textContent = 'Copied';
+  } catch (e) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById('recoveryCode'));
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e2) { /* ignore */ }
+    btn.textContent = 'Select the code above and copy it';
+  }
+}
+
+function openSecuritySheet() {
+  ['sCur', 'sNew', 'sNew2'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('securityError').textContent = '';
+  document.getElementById('securityStatus').textContent = '';
+  document.getElementById('securityOverlay').classList.add('open');
+}
+function closeSecuritySheet() {
+  document.getElementById('securityOverlay').classList.remove('open');
+}
+
+async function verifyCurrentPasscode() {
+  const errorEl = document.getElementById('securityError');
+  const cur = document.getElementById('sCur').value;
+  if (!cur) { errorEl.textContent = 'Enter your current passcode.'; return null; }
+  const ring = await loadKeyring();
+  if (!ring) { errorEl.textContent = 'Something went wrong loading your setup.'; return null; }
+  try { return { ring, dek: await openWithPasscode(ring, cur) }; }
+  catch (e) { errorEl.textContent = 'Current passcode is incorrect.'; return null; }
+}
+
+async function handleChangePasscode() {
+  const errorEl = document.getElementById('securityError');
+  const status = document.getElementById('securityStatus');
+  errorEl.textContent = ''; status.textContent = '';
+  const n1 = document.getElementById('sNew').value;
+  const n2 = document.getElementById('sNew2').value;
+  const v = await verifyCurrentPasscode();
+  if (!v) return;
+  if (n1.length < 4) { errorEl.textContent = 'Use at least 4 characters for the new passcode.'; return; }
+  if (n1 !== n2) { errorEl.textContent = "New passcodes don't match."; return; }
+  if (!await saveKeyring(await rewrapPasscode(v.ring, v.dek, n1))) { errorEl.textContent = "Couldn't save the new passcode."; return; }
+  ['sCur', 'sNew', 'sNew2'].forEach(id => { document.getElementById(id).value = ''; });
+  status.textContent = 'Passcode changed. Your entries are unchanged.';
+}
+
+async function handleNewRecoveryCode() {
+  const errorEl = document.getElementById('securityError');
+  document.getElementById('securityStatus').textContent = '';
+  errorEl.textContent = '';
+  const v = await verifyCurrentPasscode();
+  if (!v) return;
+  const code = generateRecoveryCode();
+  if (!await saveKeyring(await rewrapRecovery(v.ring, v.dek, code))) { errorEl.textContent = "Couldn't save the new recovery code."; return; }
+  closeSecuritySheet();
+  showRecoverySheet(code, null);
+}
+
+document.getElementById('openSecurityBtn').addEventListener('click', openSecuritySheet);
+document.getElementById('securityCloseBtn').addEventListener('click', closeSecuritySheet);
+document.getElementById('securityChangeBtn').addEventListener('click', handleChangePasscode);
+document.getElementById('securityNewCodeBtn').addEventListener('click', handleNewRecoveryCode);
+document.getElementById('recoveryCopyBtn').addEventListener('click', copyRecoveryCode);
+document.getElementById('recoverySavedChk').addEventListener('change', (e) => {
+  document.getElementById('recoveryDoneBtn').disabled = !e.target.checked;
+});
+document.getElementById('recoveryDoneBtn').addEventListener('click', () => {
+  document.getElementById('recoveryOverlay').classList.remove('open');
+  const cb = _recoveryDone; _recoveryDone = null;
+  if (cb) cb();
+});
+
+/* ---------- side menu: Quick Links ---------- */
+const LINKS_KEY = 'oncall-links';
+const LINK_SECTIONS = {
+  references: { title: 'Quick Links', hint: 'Opens in your browser.', editable: true, defaults: [{ name: '2026 AHA PE Guidelines', url: 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001415#sec-7' }] }
+};
+let linkData = null;
+let activeLinkSection = 'references';
+
+async function loadLinks() {
+  if (linkData) return linkData;
+  linkData = {};
+  try {
+    const raw = await storageGet(LINKS_KEY);
+    if (raw) linkData = JSON.parse(raw) || {};
+  } catch (e) { linkData = {}; }
+  return linkData;
+}
+// Built-in links always show first; only links you add yourself are saved and removable.
+function savedLinks() {
+  return Array.isArray(linkData[activeLinkSection]) ? linkData[activeLinkSection] : [];
+}
+async function saveLinks(list) {
+  linkData[activeLinkSection] = list;
+  await storageSet(LINKS_KEY, JSON.stringify(linkData));
+}
+function safeUrl(u) {
+  let v = String(u || '').trim();
+  if (!v) return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v;
+  try { const x = new URL(v); return (x.protocol === 'https:' || x.protocol === 'http:') ? x.href : ''; } catch (e) { return ''; }
+}
+function removedDefaults() {
+  const r = linkData[activeLinkSection + '_removed'];
+  return Array.isArray(r) ? r : [];
+}
+function renderLinks() {
+  const gone = removedDefaults();
+  const built = LINK_SECTIONS[activeLinkSection].defaults.filter(l => !gone.includes(l.url));
+  const mine = savedLinks();
+  const row = (l, kind, ref) => `<div class="link-row"><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.name)}<small>${escapeHtml(l.url)}</small></a><button class="link-del" data-kind="${kind}" data-ref="${escapeHtml(String(ref))}">Delete</button></div>`;
+  const box = document.getElementById('linksList');
+  const html = built.map(l => row(l, 'built', l.url)).join('') + mine.map((l, i) => row(l, 'mine', i)).join('');
+  box.innerHTML = html || '<div class="cal-empty">No links yet. Tap Add to save one.</div>';
+  box.querySelectorAll('.link-del').forEach(b => b.addEventListener('click', async () => {
+    if (b.dataset.kind === 'built') {
+      linkData[activeLinkSection + '_removed'] = removedDefaults().concat([b.dataset.ref]);
+      await storageSet(LINKS_KEY, JSON.stringify(linkData));
+    } else {
+      await saveLinks(savedLinks().filter((_, i) => i !== Number(b.dataset.ref)));
+    }
+    renderLinks();
+  }));
+}
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerScrim').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerScrim').classList.remove('open');
+}
+async function openLinksSheet(section) {
+  activeLinkSection = section;
+  await loadLinks();
+  const sec = LINK_SECTIONS[section];
+  document.getElementById('linksTitle').textContent = sec.title;
+  document.getElementById('linksHint').textContent = sec.hint;
+  document.getElementById('linkName').value = '';
+  document.getElementById('linkUrl').value = '';
+  document.getElementById('linkError').textContent = '';
+  document.getElementById('linkForm').style.display = 'none';
+  document.getElementById('linkAddBtn').textContent = 'Add';
+  document.getElementById('linkAddBtn').style.display = sec.editable ? 'block' : 'none';
+  renderLinks();
+  closeDrawer();
+  document.getElementById('linksOverlay').classList.add('open');
+}
+async function handleAddLink() {
+  const form = document.getElementById('linkForm');
+  const btn = document.getElementById('linkAddBtn');
+  if (form.style.display === 'none') {
+    form.style.display = 'block';
+    btn.textContent = 'Save link';
+    document.getElementById('linkName').focus();
+    return;
+  }
+  const name = document.getElementById('linkName').value.trim();
+  const url = safeUrl(document.getElementById('linkUrl').value);
+  const err = document.getElementById('linkError');
+  err.textContent = '';
+  if (!url) { err.textContent = 'Enter a valid web address.'; return; }
+  const list = savedLinks().concat([{ name: name || url.replace(/^https?:\/\//, ''), url }]);
+  await saveLinks(list);
+  document.getElementById('linkName').value = '';
+  document.getElementById('linkUrl').value = '';
+  form.style.display = 'none';
+  btn.textContent = 'Add';
+  renderLinks();
+}
+document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
+document.getElementById('menuReferences').addEventListener('click', () => openLinksSheet('references'));
+document.getElementById('linksCloseBtn').addEventListener('click', () => document.getElementById('linksOverlay').classList.remove('open'));
+document.getElementById('linkAddBtn').addEventListener('click', handleAddLink);
+
+/* ---------- move data between devices (encrypted backup file) ---------- */
+async function backupKey(password, saltB64) { return deriveKey(password, saltB64); }
+
+async function handleBackupExport() {
+  const err = document.getElementById('trError'), ok = document.getElementById('trStatus');
+  err.textContent = ''; ok.textContent = '';
+  const pw = document.getElementById('trExpPass').value;
+  if (pw.length < 4) { err.textContent = 'Choose a password of at least 4 characters for the file.'; return; }
+  const salt = randomSaltB64();
+  const key = await backupKey(pw, salt);
+  const payload = await encryptJSON(key, { calls, quietDays, profile, exported: new Date().toISOString() });
+  const text = JSON.stringify({ app: 'oncall-log-backup', v: 1, salt, payload });
+  const filename = `oncall-backup-${todayStr()}.json`;
+  const blob = new Blob([text], { type: 'application/json' });
+  try {
+    const file = new File([blob], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'On-call log backup' });
+      ok.textContent = 'Backup ready. Open it on your other device and import it.';
+      return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  downloadBlob(blob, filename);
+  ok.textContent = 'Backup saved to your downloads. Open it on your other device and import it.';
+}
+
+async function handleBackupImport() {
+  const err = document.getElementById('trError'), ok = document.getElementById('trStatus');
+  err.textContent = ''; ok.textContent = '';
+  const f = document.getElementById('trFile').files[0];
+  const pw = document.getElementById('trImpPass').value;
+  if (!f) { err.textContent = 'Choose a backup file first.'; return; }
+  if (!pw) { err.textContent = "Enter the file's password."; return; }
+  let data;
+  try {
+    const wrap = JSON.parse(await f.text());
+    if (!wrap || wrap.app !== 'oncall-log-backup') throw new Error('bad');
+    data = await decryptJSON(await backupKey(pw, wrap.salt), wrap.payload);
+  } catch (e) { err.textContent = "Couldn't open that file. Check the password and that it's an on-call backup."; return; }
+
+  const have = new Set(calls.map(c => c.id));
+  let added = 0, skipped = 0;
+  (Array.isArray(data.calls) ? data.calls : []).forEach(c => {
+    if (!c || !c.id || !c.date) return;
+    if (have.has(c.id)) { skipped++; return; }
+    calls.push(c); have.add(c.id); added++;
+  });
+  normalizeCallTypes();
+  let quietAdded = 0;
+  (Array.isArray(data.quietDays) ? data.quietDays : []).forEach(d => {
+    if (!quietDays.includes(d) && !calls.some(c => c.date === d)) { quietDays.push(d); quietAdded++; }
+  });
+  if (!profile && data.profile && data.profile.name) { profile = data.profile; await storageSet(PROFILE_KEY, await encryptJSON(cryptoKey, profile)); }
+  await persistCalls();
+  await persistQuiet();
+  render();
+  document.getElementById('trFile').value = '';
+  document.getElementById('trImpPass').value = '';
+  ok.textContent = `Imported ${added} call${added === 1 ? '' : 's'}` + (quietAdded ? `, ${quietAdded} no-call day${quietAdded === 1 ? '' : 's'}` : '') + (skipped ? `. ${skipped} already here, skipped.` : '.');
+}
+
+function openTransferSheet() {
+  ['trExpPass', 'trImpPass'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('trFile').value = '';
+  document.getElementById('trError').textContent = '';
+  document.getElementById('trStatus').textContent = '';
+  closeDrawer();
+  document.getElementById('transferOverlay').classList.add('open');
+}
+document.getElementById('menuTransfer').addEventListener('click', openTransferSheet);
+document.getElementById('trCloseBtn').addEventListener('click', () => document.getElementById('transferOverlay').classList.remove('open'));
+document.getElementById('trExportBtn').addEventListener('click', handleBackupExport);
+document.getElementById('trImportBtn').addEventListener('click', handleBackupImport);
+
+/* ---------- yearly archive ---------- */
+// The main list shows the current calendar year. In January it also keeps December visible,
+// so anyone working over New Year can still see the end of December.
+function viewStartStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  return now.getMonth() === 0 ? `${y - 1}-12-01` : `${y}-01-01`;
+}
+function yearSummaries() {
+  const byYear = {};
+  const bump = (date, key, n) => {
+    const y = date.slice(0, 4);
+    byYear[y] = byYear[y] || { calls: 0, days: new Set() };
+    byYear[y].days.add(date);
+    byYear[y].calls += n;
+  };
+  calls.forEach(c => bump(c.date, 'c', 1));
+  quietDays.forEach(d => bump(d, 'q', 0));
+  return Object.keys(byYear).sort().reverse().map(y => ({ year: Number(y), calls: byYear[y].calls, days: byYear[y].days.size }));
+}
+function renderArchive() {
+  const thisYear = new Date().getFullYear();
+  const rows = yearSummaries();
+  const box = document.getElementById('archiveList');
+  box.innerHTML = rows.length ? rows.map(r => `<div class="link-row"><div style="flex:1;min-width:0"><div style="font-weight:600">${r.year}${r.year === thisYear ? ' <span style="color:var(--text-dim);font-weight:400;font-size:12px">(this year)</span>' : ''}</div><div style="color:var(--text-dim);font-size:12px;margin-top:2px">${r.calls} call${r.calls === 1 ? '' : 's'} · ${r.days} on-call day${r.days === 1 ? '' : 's'}</div></div><div style="display:flex;gap:8px;flex:none"><button class="export-btn" data-year="${r.year}" style="margin:0;width:auto;padding:8px 14px">Excel</button>${canShareFiles() ? `<button class="export-btn" data-year="${r.year}" data-share="1" style="margin:0;width:auto;padding:8px 14px">Share</button>` : ''}</div></div>`).join('') : '<div class="cal-empty">Nothing logged yet.</div>';
+  box.querySelectorAll('[data-year]').forEach(b => b.addEventListener('click', () => {
+    const y = Number(b.dataset.year);
+    exportForRange(new Date(y, 0, 1), new Date(y, 11, 31), String(y), 'xlsx', b.dataset.share === '1');
+  }));
+}
+function openArchiveSheet() {
+  renderArchive();
+  closeDrawer();
+  document.getElementById('archiveOverlay').classList.add('open');
+}
+document.getElementById('menuArchive').addEventListener('click', openArchiveSheet);
+document.getElementById('archiveCloseBtn').addEventListener('click', () => document.getElementById('archiveOverlay').classList.remove('open'));
+
+/* ---------- export ---------- */
+function csvEscape(val) {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+
+/* Builds the export data once; CSV and Excel are both produced from it. */
+function buildExportData(fromDate, toDate) {
+  const inRange = (dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const cd = new Date(y, m - 1, d);
+    if (fromDate && cd < fromDate) return false;
+    if (toDate && cd > toDate) return false;
+    return true;
+  };
+  const grouped = {};
+  calls.filter(c => inRange(c.date)).forEach(c => {
+    (grouped[c.date] = grouped[c.date] || []).push(c);
+  });
+  const dates = [...new Set([...Object.keys(grouped), ...quietDays.filter(inRange)])].sort();
+
+  const months = [];
+  dates.forEach(date => {
+    const key = date.slice(0, 7);
+    let mo = months[months.length - 1];
+    if (!mo || mo.key !== key) {
+      const [my, mm] = key.split('-').map(Number);
+      mo = { key, label: new Date(my, mm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), days: [], calls: 0, minutes: 0, quietDays: 0 };
+      months.push(mo);
+    }
+    const [y, m, d] = date.split('-').map(Number);
+    const dayCalls = (grouped[date] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+    const minutes = dayCalls.reduce((s, c) => s + (c.durationMinutes || 0), 0);
+    mo.days.push({
+      date,
+      dayName: new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long' }),
+      calls: dayCalls,
+      minutes,
+      holiday: holidayName(date)
+    });
+    mo.calls += dayCalls.length;
+    mo.minutes += minutes;
+    if (!dayCalls.length) mo.quietDays++;
+  });
+  return months;
+}
+
+const EXPORT_HEADERS = ['Month', 'On-call day', 'Day', 'Start time', 'Finish time', 'Patient', 'Call type', 'Reason / notes', 'Duration (min)', 'Public holiday'];
+
+let _shareNext = false;
+function canShareFiles() {
+  try {
+    const f = new File(['x'], 'x.csv', { type: 'text/csv' });
+    return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [f] }));
+  } catch (e) { return false; }
+}
+// Opens the phone's share sheet (Mail, Files, AirDrop...) when asked; otherwise saves as a download.
+async function deliverFile(blob, filename) {
+  const wantShare = _shareNext;
+  _shareNext = false;
+  if (wantShare) {
+    try {
+      const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'On-call log export' });
+        return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  downloadBlob(blob, filename);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(months, suffix) {
+  const rows = [];
+  if (profile) {
+    rows.push(['Name', profile.name]);
+    rows.push(['Employee ID', profile.empId]);
+  }
+  rows.push(['Exported', todayStr()]);
+  rows.push([]);
+  rows.push(EXPORT_HEADERS);
+
+  months.forEach(mo => {
+    mo.days.forEach(day => {
+      day.calls.forEach(c => {
+        rows.push([mo.label, day.date, day.dayName, c.time, callEndTime(c), c.label || '', c.type || '', c.reason || '', c.durationMinutes || 0, day.holiday]);
+      });
+      if (!day.calls.length) rows.push([mo.label, day.date, day.dayName, '', '', 'On call - no calls received', '', '', 0, day.holiday]);
+      rows.push(['', day.date, day.dayName, '', '', `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`, '', '', day.minutes, day.holiday]);
+    });
+    if (months.length > 1) {
+      rows.push([mo.label, '', '', '', '', `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, '', '', mo.minutes]);
+    }
+    rows.push([]);
+  });
+
+  const csvContent = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+  deliverFile(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }), `oncall-log-${suffix}.csv`);
+}
+
+/* ---------- Excel (.xlsx) writer: a small, dependency-free implementation ---------- */
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const _crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = _crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Stores files uncompressed in a .zip container (all an .xlsx needs).
+function makeZip(files, mime) {
+  const enc = new TextEncoder();
+  const u16 = n => [n & 255, (n >> 8) & 255];
+  const u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  files.forEach(f => {
+    const name = enc.encode(f.name);
+    const data = enc.encode(f.text);
+    const crc = crc32(data);
+    const local = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+    chunks.push(local, name, data);
+    central.push({ name, crc, size: data.length, offset });
+    offset += local.length + name.length + data.length;
+  });
+  const cdStart = offset;
+  let cdSize = 0;
+  central.forEach(c => {
+    const hdr = new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(c.crc), ...u32(c.size), ...u32(c.size), ...u16(c.name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(c.offset)]);
+    chunks.push(hdr, c.name);
+    cdSize += hdr.length + c.name.length;
+  });
+  chunks.push(new Uint8Array([0x50, 0x4b, 5, 6, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(cdStart), ...u16(0)]));
+  return new Blob(chunks, { type: mime });
+}
+
+function xmlEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function xcell(col, row, value, style, kind) {
+  const ref = 'ABCDEFGHIJ'[col] + row;
+  const sAttr = style ? ` s="${style}"` : '';
+  if (value === '' || value === null || value === undefined) return style ? `<c r="${ref}"${sAttr}/>` : '';
+  if (kind === 'n') return `<c r="${ref}"${sAttr}><v>${value}</v></c>`;
+  return `<c r="${ref}" t="inlineStr"${sAttr}><is><t xml:space="preserve">${xmlEsc(value)}</t></is></c>`;
+}
+function excelDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+function excelTime(t) {
+  const mins = timeToMin(t);
+  return mins === null ? '' : mins / 1440; // full precision so Excel shows the exact minute
+}
+function sheetXml(rowsXml, widths, headerRow) {
+  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+  const pane = headerRow ? `<pane ySplit="${headerRow}" topLeftCell="A${headerRow + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft"/>` : '';
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${cols}</cols><sheetData>${rowsXml.join('')}</sheetData></worksheet>`;
+}
+
+const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1FA596"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFCFEBE7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6E3B4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+
+function exportXLSX(months, suffix) {
+  // Sheet 1: the log, grouped by day
+  let r = 1;
+  const rowsXml = [];
+  const addRow = (cells) => { rowsXml.push(cells.length ? `<row r="${r}">${cells.join('')}</row>` : `<row r="${r}"/>`); r++; };
+
+  if (profile) {
+    addRow([xcell(0, r, 'Name', 9), xcell(1, r, profile.name)]);
+    addRow([xcell(0, r, 'Employee ID', 9), xcell(1, r, profile.empId)]);
+  }
+  addRow([xcell(0, r, 'Exported', 9), xcell(1, r, todayStr())]);
+  addRow([]);
+  const headerRow = r;
+  addRow(EXPORT_HEADERS.map((h, i) => xcell(i, r, h, 1)));
+
+  const shadeRow = (rowNum, textStyle, numStyle, label, minutes, monthLabel, date, dayName, holiday) => {
+    const cells = [];
+    for (let i = 0; i < 10; i++) {
+      let v = '', kind = 's', st = textStyle;
+      if (i === 0 && monthLabel) v = monthLabel;
+      if (i === 1 && date) { v = excelDate(date); kind = 'n'; st = 11; }
+      if (i === 2 && dayName) v = dayName;
+      if (i === 5) v = label;
+      if (i === 8) { v = minutes; kind = 'n'; st = numStyle; }
+      if (i === 9 && holiday) v = holiday;
+      cells.push(xcell(i, rowNum, v, st, kind));
+    }
+    return cells;
+  };
+
+  months.forEach(mo => {
+    mo.days.forEach(day => {
+      const hol = (cellRow) => xcell(9, cellRow, day.holiday, day.holiday ? 8 : 0);
+      day.calls.forEach(c => {
+        const end = callEndTime(c);
+        addRow([
+          xcell(0, r, mo.label),
+          xcell(1, r, excelDate(day.date), 2, 'n'),
+          xcell(2, r, day.dayName),
+          xcell(3, r, excelTime(c.time), 3, 'n'),
+          xcell(4, r, end ? excelTime(end) : '', 3, 'n'),
+          xcell(5, r, c.label || ''),
+          xcell(6, r, c.type || ''),
+          xcell(7, r, c.reason || ''),
+          xcell(8, r, c.durationMinutes || 0, 0, 'n'),
+          hol(r)
+        ]);
+      });
+      if (!day.calls.length) {
+        addRow([
+          xcell(0, r, mo.label),
+          xcell(1, r, excelDate(day.date), 2, 'n'),
+          xcell(2, r, day.dayName),
+          '', '',
+          xcell(5, r, 'On call - no calls received'),
+          '', '',
+          xcell(8, r, 0, 0, 'n'),
+          hol(r)
+        ]);
+      }
+      addRow(shadeRow(r, 4, 5, `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`, day.minutes, '', day.date, day.dayName, day.holiday));
+    });
+    if (months.length > 1) {
+      addRow(shadeRow(r, 6, 7, `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, mo.minutes, mo.label, '', '', ''));
+    }
+    addRow([]);
+  });
+
+  // Sheet 2: monthly summary
+  let r2 = 1;
+  const sumRows = [];
+  const addSum = (cells) => { sumRows.push(cells.length ? `<row r="${r2}">${cells.join('')}</row>` : `<row r="${r2}"/>`); r2++; };
+  addSum(['Month', 'Calls', 'Time spent (min)', 'Time spent (hours)', 'On-call days, no calls'].map((h, i) => xcell(i, r2, h, 1)));
+  let totCalls = 0, totMin = 0, totQuiet = 0;
+  months.forEach(mo => {
+    addSum([
+      xcell(0, r2, mo.label),
+      xcell(1, r2, mo.calls, 0, 'n'),
+      xcell(2, r2, mo.minutes, 0, 'n'),
+      xcell(3, r2, +(mo.minutes / 60).toFixed(2), 10, 'n'),
+      xcell(4, r2, mo.quietDays, 0, 'n')
+    ]);
+    totCalls += mo.calls; totMin += mo.minutes; totQuiet += mo.quietDays;
+  });
+  if (!months.length) addSum([xcell(0, r2, 'No entries in this date range')]);
+  else addSum([
+    xcell(0, r2, 'Total', 6),
+    xcell(1, r2, totCalls, 7, 'n'),
+    xcell(2, r2, totMin, 7, 'n'),
+    xcell(3, r2, +(totMin / 60).toFixed(2), 10, 'n'),
+    xcell(4, r2, totQuiet, 7, 'n')
+  ]);
+
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const files = [
+    { name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
+    { name: '_rels/.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets><sheet name="On-call log" sheetId="1" r:id="rId1"/><sheet name="Monthly summary" sheetId="2" r:id="rId2"/></sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${REL}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${REL}/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', text: XLSX_STYLES },
+    { name: 'xl/worksheets/sheet1.xml', text: sheetXml(rowsXml, [16, 12, 12, 10, 11, 34, 32, 34, 14, 26], headerRow) },
+    { name: 'xl/worksheets/sheet2.xml', text: sheetXml(sumRows, [18, 10, 18, 20, 22], 1) }
+  ];
+  deliverFile(makeZip(files, XLSX_MIME), `oncall-log-${suffix}.xlsx`);
+}
+
+function exportForRange(fromDate, toDate, suffix, format, share) {
+  _shareNext = !!share;
+  const months = buildExportData(fromDate, toDate);
+  if (format === 'csv') exportCSV(months, suffix);
+  else exportXLSX(months, suffix);
+}
+
+function openExportSheet() {
+  document.getElementById('exportShareBtn').style.display = canShareFiles() ? 'block' : 'none';
+  document.getElementById('exportPreset').value = 'month';
+  document.getElementById('exportCustomRange').style.display = 'none';
+  const t = todayStr();
+  document.getElementById('exportFrom').value = t;
+  document.getElementById('exportTo').value = t;
+  document.getElementById('exportOverlay').classList.add('open');
+}
+function closeExportSheet() {
+  document.getElementById('exportOverlay').classList.remove('open');
+}
+function handleExportConfirm(share) {
+  const preset = document.getElementById('exportPreset').value;
+  let from = null, to = null, suffix = '';
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  if (preset === 'week') {
+    from = new Date(today); from.setDate(from.getDate() - 7);
+    suffix = `week-${todayStr()}`;
+  } else if (preset === 'month') {
+    from = new Date(today); from.setDate(from.getDate() - 30);
+    suffix = `month-${todayStr()}`;
+  } else if (preset === 'all') {
+    suffix = 'full-history';
+  } else {
+    const fromVal = document.getElementById('exportFrom').value;
+    const toVal = document.getElementById('exportTo').value;
+    if (fromVal) { const [y,m,d] = fromVal.split('-').map(Number); from = new Date(y,m-1,d); }
+    if (toVal) { const [y,m,d] = toVal.split('-').map(Number); to = new Date(y,m-1,d); }
+    suffix = `${fromVal || 'start'}_to_${toVal || 'end'}`;
+  }
+
+  exportForRange(from, to, suffix, document.getElementById('exportFormat').value, share === true);
+  closeExportSheet();
+}
+
+document.getElementById('exportCancelBtn').addEventListener('click', closeExportSheet);
+document.getElementById('exportConfirmBtn').addEventListener('click', () => handleExportConfirm(false));
+document.getElementById('exportShareBtn').addEventListener('click', () => handleExportConfirm(true));
+document.getElementById('exportOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'exportOverlay') closeExportSheet();
+});
+document.getElementById('exportPreset').addEventListener('change', (e) => {
+  document.getElementById('exportCustomRange').style.display = e.target.value === 'custom' ? 'flex' : 'none';
+});
+
+document.getElementById('fabBtn').addEventListener('click', () => openSheet(null));
+document.getElementById('quietOpenBtn').addEventListener('click', openQuietSheet);
+document.getElementById('cancelBtn').addEventListener('click', closeSheet);
+document.getElementById('overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'overlay') closeSheet();
+});
+document.getElementById('saveBtn').addEventListener('click', saveCall);
+document.getElementById('deleteBtn').addEventListener('click', deleteCall);
+setupTime24('fTime');
+setupTime24('fEnd');
+document.getElementById('fDate').addEventListener('input', updateShiftNote);
+document.getElementById('fDate').addEventListener('change', updateShiftNote);
+['fTime', 'fEnd'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateDurationReadout);
+  document.getElementById(id).addEventListener('change', updateDurationReadout);
+});
+document.getElementById('lockSubmit').addEventListener('click', handleLockSubmit);
+document.getElementById('lockForgotLink').addEventListener('click', () => showLockScreen('recover'));
+document.getElementById('lockBackLink').addEventListener('click', () => showLockScreen('unlock'));
+document.getElementById('lockRec').addEventListener('keydown', e => { if (e.key === 'Enter') handleLockSubmit(); });
+document.getElementById('lockPass1').addEventListener('keydown', e => { if (e.key === 'Enter') handleLockSubmit(); });
+document.getElementById('lockPass2').addEventListener('keydown', e => { if (e.key === 'Enter') handleLockSubmit(); });
+
+(async function init() {
+  const ring = await loadKeyring();
+  hasKeyring = !!ring;
+  const saltB64 = ring ? null : await storageGet(SALT_KEY);
+  showLockScreen((ring || saltB64) ? 'unlock' : 'setup');
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
