@@ -762,6 +762,9 @@
   input[type="date"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0 auto; }
   .sheet, .sheet .field { max-width: 100%; min-width: 0; box-sizing: border-box; }
   .sheet { overflow-x: hidden; }
+  .guide-h { font-weight: 700; font-size: 14px; margin: 14px 0 4px; }
+  .guide-p { font-size: 14px; line-height: 1.5; color: var(--text-dim); margin-bottom: 6px; }
+  .guide-p b { color: var(--text); }
 
   .time24 {
     display: flex;
@@ -1020,7 +1023,8 @@
 <div class="drawer-scrim" id="drawerScrim"></div>
 <nav class="drawer" id="drawer" aria-label="Menu">
   <h3>Menu</h3>
-  <button class="drawer-item" id="menuReferences">Quick Links <span class="chev">›</span></button>
+  <button class="drawer-item" id="menuReferences">Quick links <span class="chev">›</span></button>
+  <button class="drawer-item" id="menuPay">On-call service guidelines <span class="chev">›</span></button>
   <button class="drawer-item" id="menuArchive">Archive <span class="chev">›</span></button>
   <button class="drawer-item" id="menuTransfer">Move data between devices <span class="chev">›</span></button>
 </nav>
@@ -1070,10 +1074,62 @@
   </div>
 </div>
 
+<div class="overlay" id="payOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>On-call service guidelines</h2>
+    <div style="height:6px"></div>
+
+    <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px">
+      <div style="padding:12px 14px;background:var(--panel)">
+        <div style="font-weight:700">Monday – Thursday</div>
+        <div style="margin-top:6px">1 unit on-call allowance</div>
+        <div>1 unit per hour service delivery</div>
+      </div>
+      <div style="padding:12px 14px;border-top:1px solid var(--border);background:var(--panel)">
+        <div style="font-weight:700">Friday, Saturday, Sunday &amp; public holidays</div>
+        <div style="margin-top:6px">2 unit on-call allowance per 24 hour period</div>
+        <div>2 units per hour service delivery</div>
+      </div>
+    </div>
+
+    <div class="guide-h">Hours</div>
+    <div class="guide-p">Normal working hours are 07:30 to 17:30. Weekday on-call shifts run 17:30 to 07:30. Weekends run from 07:30 Saturday to 07:30 Monday.</div>
+
+    <div class="guide-h">What counts as service delivery</div>
+    <div class="guide-p">Clinical consultations by phone or in person, performing procedures, reporting imaging studies, and other relevant clinical services needed to provide urgent interventional radiology support to the hospital and region outside normal working hours.</div>
+    <div class="guide-p">When attending the hospital, service time is from leaving home to returning home.</div>
+
+    <div class="guide-h">Minimum charges</div>
+    <div class="guide-p"><b>Clinical consultations:</b> a minimum 1 unit service charge applies after 22:00 Monday to Friday, and after 18:00 on Saturday and Sunday. Public holidays have a minimum 1 unit service charge as per weekends.</div>
+    <div class="guide-p"><b>Call-outs requiring an IR to attend ACH:</b> minimum 1 unit service charge on weekdays, and 2 units on weekends and public holidays.</div>
+    <div class="guide-p"><b>All other times:</b> service delivery is pro rata of the unit rate for the time spent providing the IR clinical service.</div>
+
+    <div class="guide-h">Patient management after 22:00</div>
+    <div class="guide-p">Service delivery runs from the time of arranging the patient to when the procedure is completed, including time to transfer the patient. The exception is a procedure scheduled for a dedicated time during normal working hours the following day.</div>
+
+    <div class="guide-h">Imaging and reporting</div>
+    <div class="guide-p">Imaging studies and clinical work done while on call are claimed as part of the agreed unit rate. Only imaging that definitely needs reporting after hours is expected to be claimed. Reporting imaging while waiting for patients who have been called in cannot be claimed as additional service delivery over the charge for attending the hospital. There is no double charging for service delivery.</div>
+
+    <div class="guide-h">Documentation</div>
+    <div class="guide-p">IRs document all consultations and referrals, including those from outside Auckland Hospital.</div>
+
+    <div class="guide-h">Public holidays</div>
+    <div class="guide-p">Time in lieu stays as it is, with 1 day in lieu for each public holiday worked. The public holiday service charge is 2 units allowance and 2 units per hour service delivery, with a minimum 1 unit service charge as per weekends.</div>
+
+    <div class="guide-h">In this app</div>
+    <div class="guide-p">Exports add these units to each day, week and month. Time is counted in exact hours (minutes ÷ 60), and each call is paid at the rate of the on-call day it is logged under. The minimum 1 unit charge for consultations is applied once per night. The hospital call-out minimum is not applied automatically, so enter the full service time as the duration (leaving home to returning home when attending).</div>
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="payCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="linksOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2 id="linksTitle">Quick Links</h2>
+    <h2 id="linksTitle">Quick links</h2>
     <div id="linksList"></div>
     <div class="hint" id="linksHint" style="margin-bottom:12px"></div>
     <div id="linkForm">
@@ -1608,7 +1664,7 @@ function normalizeCallTypes() {
 }
 
 function lockNow() {
-  try { closeDrawer(); ['linksOverlay', 'transferOverlay', 'archiveOverlay'].forEach(id => document.getElementById(id).classList.remove('open')); } catch (e) {}
+  try { closeDrawer(); ['linksOverlay', 'transferOverlay', 'archiveOverlay', 'payOverlay'].forEach(id => document.getElementById(id).classList.remove('open')); } catch (e) {}
   cryptoKey = null;
   profile = null;
   quietDays = [];
@@ -2483,7 +2539,7 @@ document.getElementById('recoveryDoneBtn').addEventListener('click', () => {
 /* ---------- side menu: Quick Links ---------- */
 const LINKS_KEY = 'oncall-links';
 const LINK_SECTIONS = {
-  references: { title: 'Quick Links', hint: 'Opens in your browser.', editable: true, defaults: [{ name: '2026 AHA PE Guidelines', url: 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001415#sec-7' }] }
+  references: { title: 'Quick links', hint: 'Opens in your browser.', editable: true, defaults: [{ name: '2026 AHA PE Guidelines', url: 'https://www.ahajournals.org/doi/10.1161/CIR.0000000000001415#sec-7' }] }
 };
 let linkData = null;
 let activeLinkSection = 'references';
@@ -2581,6 +2637,9 @@ async function handleAddLink() {
 }
 document.getElementById('drawerScrim').addEventListener('click', closeDrawer);
 document.getElementById('menuReferences').addEventListener('click', () => openLinksSheet('references'));
+document.getElementById('menuPay').addEventListener('click', () => { closeDrawer(); document.getElementById('payOverlay').classList.add('open'); });
+document.getElementById('payCloseBtn').addEventListener('click', () => document.getElementById('payOverlay').classList.remove('open'));
+document.getElementById('payOverlay').addEventListener('click', (e) => { if (e.target.id === 'payOverlay') e.target.classList.remove('open'); });
 document.getElementById('linksCloseBtn').addEventListener('click', () => document.getElementById('linksOverlay').classList.remove('open'));
 document.getElementById('linkAddBtn').addEventListener('click', handleAddLink);
 
@@ -2704,6 +2763,26 @@ function csvEscape(val) {
   return str;
 }
 
+/* Remuneration units: Mon-Thu 1 allowance + 1/hour; Fri, Sat, Sun & public holidays 2 allowance per on-call day + 2/hour. */
+const UNIT_RULES_TEXT = 'Mon-Thu: 1 unit on-call allowance + 1 unit per hour. Fri, Sat, Sun & public holidays: 2 unit allowance per day + 2 units per hour. Clinical consultations after 22:00 Mon-Fri, or after 18:00 Sat, Sun & public holidays: minimum 1 unit service charge for the night (not per call).';
+function unitRateFor(dateStr) {
+  if (holidayName(dateStr)) return 2;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return (dow >= 1 && dow <= 4) ? 1 : 2;
+}
+function round2(n) { return Math.round(n * 100) / 100; }
+/* Minimum 1 unit service charge for the night (not per call) when it includes a clinical consultation: Mon-Fri on-call days after 22:00, Sat, Sun & public holidays after 18:00 (including after midnight, up to 07:30). */
+function minChargeApplies(c, dateStr) {
+  if (!c.type || c.type.indexOf('Clinical Consultation') !== 0) return false;
+  const t = timeToMin(c.time);
+  if (t === null) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  const cutoff = (dow === 0 || dow === 6 || holidayName(dateStr)) ? 18 * 60 : 22 * 60; // public holidays follow the weekend rule
+  return t >= cutoff || t < 450;
+}
+
 /* Builds the export data once; CSV and Excel are both produced from it. */
 function buildExportData(fromDate, toDate) {
   const inRange = (dateStr) => {
@@ -2725,27 +2804,51 @@ function buildExportData(fromDate, toDate) {
     let mo = months[months.length - 1];
     if (!mo || mo.key !== key) {
       const [my, mm] = key.split('-').map(Number);
-      mo = { key, label: new Date(my, mm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), days: [], calls: 0, minutes: 0, quietDays: 0 };
+      mo = { key, label: new Date(my, mm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), days: [], calls: 0, minutes: 0, quietDays: 0, allowance: 0, service: 0, weeks: {} };
       months.push(mo);
     }
     const [y, m, d] = date.split('-').map(Number);
-    const dayCalls = (grouped[date] || []).slice().sort((a, b) => a.time.localeCompare(b.time));
+    const shiftKey = (t) => { const m = timeToMin(t) || 0; return m < 450 ? m + 1440 : m; }; // before 07:30 = end of the on-call night
+    const dayCalls = (grouped[date] || []).slice().sort((a, b) => shiftKey(a.time) - shiftKey(b.time));
     const minutes = dayCalls.reduce((s, c) => s + (c.durationMinutes || 0), 0);
+    const rate = unitRateFor(date);
+    const allowance = rate;
+    const callUnits = dayCalls.map(c => round2((c.durationMinutes || 0) / 60 * rate));
+    const callNotes = dayCalls.map(() => '');
+    const baseService = round2(callUnits.reduce((a, b) => a + b, 0));
+    // Minimum 1 unit service for the night if there was a qualifying clinical consultation and the total is under 1
+    const minApplied = dayCalls.some(c => minChargeApplies(c, date)) && baseService < 1;
+    const service = minApplied ? 1 : baseService;
+    const dt = new Date(y, m - 1, d);
+    const mon = new Date(y, m - 1, d - ((dt.getDay() + 6) % 7));
+    const weekKey = `${mon.getFullYear()}-${mon.getMonth() + 1}-${mon.getDate()}`;
+    const weekLabel = 'Week of ' + mon.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + (mon.getMonth() !== m - 1 ? ' (continued)' : '');
     mo.days.push({
       date,
-      dayName: new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long' }),
+      dayName: dt.toLocaleDateString(undefined, { weekday: 'long' }),
       calls: dayCalls,
       minutes,
-      holiday: holidayName(date)
+      holiday: holidayName(date),
+      rate, allowance, service, weekKey, callUnits, callNotes, minApplied
     });
     mo.calls += dayCalls.length;
     mo.minutes += minutes;
+    mo.allowance += allowance;
+    mo.service = round2(mo.service + service);
+    const w = mo.weeks[weekKey] = mo.weeks[weekKey] || { label: weekLabel, calls: 0, minutes: 0, allowance: 0, service: 0 };
+    w.calls += dayCalls.length; w.minutes += minutes; w.allowance += allowance; w.service = round2(w.service + service);
     if (!dayCalls.length) mo.quietDays++;
   });
+  let weekCount = 0;
+  months.forEach(mo => {
+    weekCount += Object.keys(mo.weeks).length;
+    mo.days.forEach((dy, i) => { dy.weekEnd = !mo.days[i + 1] || mo.days[i + 1].weekKey !== dy.weekKey; });
+  });
+  months.showWeeks = weekCount > 1;
   return months;
 }
 
-const EXPORT_HEADERS = ['Month', 'On-call day', 'Day', 'Start time', 'Finish time', 'Patient', 'Call type', 'Reason / notes', 'Duration (min)', 'Public holiday'];
+const EXPORT_HEADERS = ['Month', 'On-call day', 'Day', 'Start time', 'Finish time', 'Patient', 'Call type', 'Reason / notes', 'Duration (hours)', 'Public holiday', 'Rate (units/hr)', 'On-call allowance (units)', 'Service delivery (units)', 'Total units', 'Notes'];
 
 let _shareNext = false;
 function canShareFiles() {
@@ -2788,22 +2891,32 @@ function exportCSV(months, suffix) {
     rows.push(['Employee ID', profile.empId]);
   }
   rows.push(['Exported', todayStr()]);
+  rows.push(['Unit rates', UNIT_RULES_TEXT]);
   rows.push([]);
   rows.push(EXPORT_HEADERS);
 
   months.forEach(mo => {
     mo.days.forEach(day => {
-      day.calls.forEach(c => {
-        rows.push([mo.label, day.date, day.dayName, c.time, callEndTime(c), c.label || '', c.type || '', c.reason || '', c.durationMinutes || 0, day.holiday]);
+      day.calls.forEach((c, ci) => {
+        rows.push([mo.label, day.date, day.dayName, c.time, callEndTime(c), c.label || '', c.type || '', c.reason || '', round2((c.durationMinutes || 0) / 60), day.holiday, day.rate, '', day.callUnits[ci], '', day.callNotes[ci]]);
       });
-      if (!day.calls.length) rows.push([mo.label, day.date, day.dayName, '', '', 'On call - no calls received', '', '', 0, day.holiday]);
-      rows.push(['', day.date, day.dayName, '', '', `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`, '', '', day.minutes, day.holiday]);
+      if (!day.calls.length) rows.push([mo.label, day.date, day.dayName, '', '', 'On call - no calls received', '', '', 0, day.holiday, day.rate, '', '', '']);
+      rows.push(['', day.date, day.dayName, '', '', `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`, '', '', round2(day.minutes / 60), day.holiday, day.rate, day.allowance, day.service, round2(day.allowance + day.service), day.minApplied ? 'Minimum 1 unit service applied' : '']);
+      if (months.showWeeks && day.weekEnd) {
+        const w = mo.weeks[day.weekKey];
+        rows.push(['', '', '', '', '', `${w.label}: ${w.calls} call${w.calls === 1 ? '' : 's'} — week total`, '', '', round2(w.minutes / 60), '', '', w.allowance, w.service, round2(w.allowance + w.service)]);
+      }
     });
     if (months.length > 1) {
-      rows.push([mo.label, '', '', '', '', `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, '', '', mo.minutes]);
+      rows.push([mo.label, '', '', '', '', `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, '', '', round2(mo.minutes / 60), '', '', mo.allowance, mo.service, round2(mo.allowance + mo.service)]);
     }
     rows.push([]);
   });
+  if (months.length) {
+    const gm = months.reduce((s, m) => s + m.minutes, 0), gc = months.reduce((s, m) => s + m.calls, 0);
+    const ga = months.reduce((s, m) => s + m.allowance, 0), gs = round2(months.reduce((s, m) => s + m.service, 0));
+    rows.push(['', '', '', '', '', `${gc} call${gc === 1 ? '' : 's'} — export total`, '', '', round2(gm / 60), '', '', ga, gs, round2(ga + gs)]);
+  }
 
   const csvContent = rows.map(r => r.map(csvEscape).join(',')).join('\n');
   deliverFile(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }), `oncall-log-${suffix}.csv`);
@@ -2859,7 +2972,7 @@ function xmlEsc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function xcell(col, row, value, style, kind) {
-  const ref = 'ABCDEFGHIJ'[col] + row;
+  const ref = 'ABCDEFGHIJKLMNO'[col] + row;
   const sAttr = style ? ` s="${style}"` : '';
   if (value === '' || value === null || value === undefined) return style ? `<c r="${ref}"${sAttr}/>` : '';
   if (kind === 'n') return `<c r="${ref}"${sAttr}><v>${value}</v></c>`;
@@ -2881,7 +2994,7 @@ function sheetXml(rowsXml, widths, headerRow) {
 }
 
 const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1FA596"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFCFEBE7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6E3B4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1FA596"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFCFEBE7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6E3B4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="18"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 function exportXLSX(months, suffix) {
   // Sheet 1: the log, grouped by day
@@ -2894,13 +3007,14 @@ function exportXLSX(months, suffix) {
     addRow([xcell(0, r, 'Employee ID', 9), xcell(1, r, profile.empId)]);
   }
   addRow([xcell(0, r, 'Exported', 9), xcell(1, r, todayStr())]);
+  addRow([xcell(0, r, 'Unit rates', 9), xcell(1, r, UNIT_RULES_TEXT)]);
   addRow([]);
   const headerRow = r;
   addRow(EXPORT_HEADERS.map((h, i) => xcell(i, r, h, 1)));
 
-  const shadeRow = (rowNum, textStyle, numStyle, label, minutes, monthLabel, date, dayName, holiday) => {
+  const shadeRow = (rowNum, textStyle, numStyle, label, minutes, monthLabel, date, dayName, holiday, u, uStyle) => {
     const cells = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 14; i++) {
       let v = '', kind = 's', st = textStyle;
       if (i === 0 && monthLabel) v = monthLabel;
       if (i === 1 && date) { v = excelDate(date); kind = 'n'; st = 11; }
@@ -2908,88 +3022,145 @@ function exportXLSX(months, suffix) {
       if (i === 5) v = label;
       if (i === 8) { v = minutes; kind = 'n'; st = numStyle; }
       if (i === 9 && holiday) v = holiday;
+      if (i >= 10) { v = u ? (u[i - 10] === null ? '' : u[i - 10]) : ''; kind = 'n'; st = uStyle || textStyle; }
       cells.push(xcell(i, rowNum, v, st, kind));
     }
     return cells;
   };
 
   months.forEach(mo => {
+    let monthShown = false;
+    const monthCell = () => { if (monthShown) return ''; monthShown = true; return mo.label; };
     mo.days.forEach(day => {
       const hol = (cellRow) => xcell(9, cellRow, day.holiday, day.holiday ? 8 : 0);
-      day.calls.forEach(c => {
+      day.calls.forEach((c, ci) => {
         const end = callEndTime(c);
         addRow([
-          xcell(0, r, mo.label),
-          xcell(1, r, excelDate(day.date), 2, 'n'),
-          xcell(2, r, day.dayName),
+          xcell(0, r, monthCell()),
+          ci === 0 ? xcell(1, r, excelDate(day.date), 2, 'n') : '',
+          ci === 0 ? xcell(2, r, day.dayName) : '',
           xcell(3, r, excelTime(c.time), 3, 'n'),
           xcell(4, r, end ? excelTime(end) : '', 3, 'n'),
           xcell(5, r, c.label || ''),
           xcell(6, r, c.type || ''),
-          xcell(7, r, c.reason || ''),
-          xcell(8, r, c.durationMinutes || 0, 0, 'n'),
-          hol(r)
+          xcell(7, r, c.reason || '', 17),
+          xcell(8, r, round2((c.durationMinutes || 0) / 60), 10, 'n'),
+          ci === 0 ? hol(r) : '',
+          '',
+          '',
+          xcell(12, r, day.callUnits[ci], 10, 'n'),
+          '',
+          xcell(14, r, day.callNotes[ci])
         ]);
       });
-      if (!day.calls.length) {
-        addRow([
-          xcell(0, r, mo.label),
-          xcell(1, r, excelDate(day.date), 2, 'n'),
-          xcell(2, r, day.dayName),
-          '', '',
-          xcell(5, r, 'On call - no calls received'),
-          '', '',
-          xcell(8, r, 0, 0, 'n'),
-          hol(r)
-        ]);
+      // Days with calls: date, day and holiday are shown once, on the first call row. Quiet days get a single row.
+      const quiet = !day.calls.length;
+      const dayLabel = quiet ? 'On call, no calls received' : `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`;
+      const dayCells = shadeRow(r, 4, 12, dayLabel, round2(day.minutes / 60), quiet ? monthCell() : '', quiet ? day.date : '', quiet ? day.dayName : '', quiet ? day.holiday : '', [day.rate, day.allowance, day.service, round2(day.allowance + day.service)], 12);
+      if (day.minApplied) dayCells.push(xcell(14, r, 'Minimum 1 unit service applied', 4));
+      addRow(dayCells);
+      if (months.showWeeks && day.weekEnd) {
+        const w = mo.weeks[day.weekKey];
+        addRow(shadeRow(r, 15, 14, `${w.label}: ${w.calls} call${w.calls === 1 ? '' : 's'} — week total`, round2(w.minutes / 60), '', '', '', '', [null, w.allowance, w.service, round2(w.allowance + w.service)], 14));
       }
-      addRow(shadeRow(r, 4, 5, `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`, day.minutes, '', day.date, day.dayName, day.holiday));
     });
     if (months.length > 1) {
-      addRow(shadeRow(r, 6, 7, `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, mo.minutes, mo.label, '', '', ''));
+      addRow(shadeRow(r, 6, 13, `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, round2(mo.minutes / 60), mo.label, '', '', '', [null, mo.allowance, mo.service, round2(mo.allowance + mo.service)], 13));
     }
     addRow([]);
   });
+  if (months.length) {
+    const gm = months.reduce((s, m) => s + m.minutes, 0), gc = months.reduce((s, m) => s + m.calls, 0);
+    const ga = months.reduce((s, m) => s + m.allowance, 0), gs = round2(months.reduce((s, m) => s + m.service, 0));
+    addRow(shadeRow(r, 6, 13, `${gc} call${gc === 1 ? '' : 's'} — export total`, round2(gm / 60), '', '', '', '', [null, ga, gs, round2(ga + gs)], 13));
+  }
 
   // Sheet 2: monthly summary
   let r2 = 1;
   const sumRows = [];
   const addSum = (cells) => { sumRows.push(cells.length ? `<row r="${r2}">${cells.join('')}</row>` : `<row r="${r2}"/>`); r2++; };
-  addSum(['Month', 'Calls', 'Time spent (min)', 'Time spent (hours)', 'On-call days, no calls'].map((h, i) => xcell(i, r2, h, 1)));
-  let totCalls = 0, totMin = 0, totQuiet = 0;
+  addSum(['Month', 'Calls', 'Time spent (hours)', 'On-call days, no calls', 'Allowance units', 'Service delivery units', 'Total units'].map((h, i) => xcell(i, r2, h, 1)));
+  let totCalls = 0, totMin = 0, totQuiet = 0, totAllow = 0, totServ = 0;
   months.forEach(mo => {
     addSum([
       xcell(0, r2, mo.label),
       xcell(1, r2, mo.calls, 0, 'n'),
-      xcell(2, r2, mo.minutes, 0, 'n'),
-      xcell(3, r2, +(mo.minutes / 60).toFixed(2), 10, 'n'),
-      xcell(4, r2, mo.quietDays, 0, 'n')
+      xcell(2, r2, round2(mo.minutes / 60), 10, 'n'),
+      xcell(3, r2, mo.quietDays, 0, 'n'),
+      xcell(4, r2, mo.allowance, 10, 'n'),
+      xcell(5, r2, mo.service, 10, 'n'),
+      xcell(6, r2, round2(mo.allowance + mo.service), 10, 'n')
     ]);
-    totCalls += mo.calls; totMin += mo.minutes; totQuiet += mo.quietDays;
+    totCalls += mo.calls; totMin += mo.minutes; totQuiet += mo.quietDays; totAllow += mo.allowance; totServ = round2(totServ + mo.service);
   });
   if (!months.length) addSum([xcell(0, r2, 'No entries in this date range')]);
   else addSum([
     xcell(0, r2, 'Total', 6),
     xcell(1, r2, totCalls, 7, 'n'),
-    xcell(2, r2, totMin, 7, 'n'),
-    xcell(3, r2, +(totMin / 60).toFixed(2), 10, 'n'),
-    xcell(4, r2, totQuiet, 7, 'n')
+    xcell(2, r2, round2(totMin / 60), 13, 'n'),
+    xcell(3, r2, totQuiet, 7, 'n'),
+    xcell(4, r2, totAllow, 13, 'n'),
+    xcell(5, r2, totServ, 13, 'n'),
+    xcell(6, r2, round2(totAllow + totServ), 13, 'n')
   ]);
+
+  // Sheet 3 (shown first in the workbook): Summary for submission - daily rows with weekly totals
+  let r3 = 1;
+  const subRows = [];
+  const addSub = (cells) => { subRows.push(cells.length ? `<row r="${r3}">${cells.join('')}</row>` : `<row r="${r3}"/>`); r3++; };
+  addSub([xcell(0, r3, 'On-call service summary for submission', 9)]);
+  if (profile) {
+    addSub([xcell(0, r3, 'Name', 9), xcell(1, r3, profile.name)]);
+    addSub([xcell(0, r3, 'Employee ID', 9), xcell(1, r3, profile.empId)]);
+  }
+  const allDays = months.reduce((a, m) => a.concat(m.days), []);
+  if (allDays.length) addSub([xcell(0, r3, 'Period', 9), xcell(1, r3, `${allDays[0].date} to ${allDays[allDays.length - 1].date}`)]);
+  addSub([xcell(0, r3, 'Exported', 9), xcell(1, r3, todayStr())]);
+  addSub([]);
+  const subHeader = r3;
+  addSub(['Date', 'Day', 'Time spent (hours)', 'On-call day, no calls', 'Total units', 'Notes'].map((h, i) => xcell(i, r3, h, 1)));
+  let gMin = 0, gQuiet = 0, gUnits = 0, wMin = 0, wQuiet = 0, wUnits = 0;
+  const weekRow = (label, min, quiet, units, st, stN, stI) => addSub([xcell(0, r3, label, st), xcell(1, r3, '', st), xcell(2, r3, round2(min / 60), stN, 'n'), xcell(3, r3, quiet, stI, 'n'), xcell(4, r3, round2(units), stN, 'n'), xcell(5, r3, '', st)]);
+  allDays.forEach((day, i) => {
+    const units = day.allowance + day.service;
+    const quiet = day.calls.length ? 0 : 1;
+    const notes = [day.holiday, day.minApplied ? 'Minimum 1 unit service applied' : ''].filter(Boolean).join('; ');
+    addSub([
+      xcell(0, r3, excelDate(day.date), 2, 'n'),
+      xcell(1, r3, day.dayName),
+      xcell(2, r3, round2(day.minutes / 60), 10, 'n'),
+      quiet ? xcell(3, r3, 1, 0, 'n') : '',
+      xcell(4, r3, round2(units), 10, 'n'),
+      xcell(5, r3, notes, day.holiday ? 8 : 0)
+    ]);
+    wMin += day.minutes; wQuiet += quiet; wUnits += units;
+    gMin += day.minutes; gQuiet += quiet; gUnits += units;
+    const next = allDays[i + 1];
+    if (!next || next.weekKey !== day.weekKey) {
+      const [wy, wm, wd] = day.weekKey.split('-').map(Number);
+      const wl = 'Week of ' + new Date(wy, wm - 1, wd).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+      weekRow(`${wl} — week total`, wMin, wQuiet, wUnits, 15, 14, 16);
+      wMin = 0; wQuiet = 0; wUnits = 0;
+    }
+  });
+  if (!allDays.length) addSub([xcell(0, r3, 'No entries in this date range')]);
+  else { addSub([]); weekRow('Total for this export', gMin, gQuiet, gUnits, 6, 13, 7); }
 
   const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
   const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
   const files = [
     { name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
     { name: '_rels/.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
     { name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets><sheet name="On-call log" sheetId="1" r:id="rId1"/><sheet name="Monthly summary" sheetId="2" r:id="rId2"/></sheets></workbook>` },
+<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets><sheet name="Summary for submission" sheetId="3" r:id="rId4"/><sheet name="On-call log" sheetId="1" r:id="rId1"/><sheet name="Monthly summary" sheetId="2" r:id="rId2"/></sheets></workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${REL}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${REL}/styles" Target="styles.xml"/></Relationships>` },
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${REL}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${REL}/styles" Target="styles.xml"/><Relationship Id="rId4" Type="${REL}/worksheet" Target="worksheets/sheet3.xml"/></Relationships>` },
     { name: 'xl/styles.xml', text: XLSX_STYLES },
-    { name: 'xl/worksheets/sheet1.xml', text: sheetXml(rowsXml, [16, 12, 12, 10, 11, 34, 32, 34, 14, 26], headerRow) },
-    { name: 'xl/worksheets/sheet2.xml', text: sheetXml(sumRows, [18, 10, 18, 20, 22], 1) }
+    { name: 'xl/worksheets/sheet1.xml', text: sheetXml(rowsXml, [16, 12, 12, 10, 11, 34, 32, 34, 16, 26, 14, 20, 20, 12, 24], headerRow) },
+    { name: 'xl/worksheets/sheet3.xml', text: sheetXml(subRows, [26, 12, 20, 22, 14, 36], subHeader) },
+    { name: 'xl/worksheets/sheet2.xml', text: sheetXml(sumRows, [18, 10, 18, 22, 18, 22, 14], 1) }
   ];
   deliverFile(makeZip(files, XLSX_MIME), `oncall-log-${suffix}.xlsx`);
 }

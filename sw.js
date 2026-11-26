@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oncall-log-v50';
+const CACHE_NAME = 'oncall-log-v63';
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(APP_SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
