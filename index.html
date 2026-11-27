@@ -934,6 +934,7 @@
       <label id="lockLabel2">Confirm passcode</label>
       <input type="password" id="lockPass2" class="mono" autocomplete="off">
     </div>
+    <label class="check-row" id="lockNewCodeRow" style="display:none;margin:2px 0 12px"><input type="checkbox" id="lockNewCode"> Also create a new recovery code</label>
     <div class="lock-error" id="lockError"></div>
     <button class="btn primary" id="lockSubmit" style="width:100%">Set passcode &amp; continue</button>
     <button class="lock-link" id="lockForgotLink">Forgot passcode?</button>
@@ -1479,6 +1480,8 @@ function showLockScreen(mode) {
 
   show('lockRecField', mode === 'recover');
   show('lockConfirmField', mode !== 'unlock');
+  show('lockNewCodeRow', mode === 'recover', 'flex');
+  $('lockNewCode').checked = false;
   show('lockForgotLink', mode === 'unlock' && hasKeyring, 'inline-block');
   show('lockBackLink', mode === 'recover', 'inline-block');
 
@@ -1633,12 +1636,18 @@ async function doRecover(code, pass1, pass2, errorEl) {
   try { await loadAllData(dek); }
   catch (e) { errorEl.textContent = "Couldn't read your saved data."; return; }
 
-  const newRing = await rewrapPasscode(ring, dek, pass1);
+  let newRing = await rewrapPasscode(ring, dek, pass1);
+  let newCode = null;
+  if (document.getElementById('lockNewCode').checked) {
+    newCode = generateRecoveryCode();
+    newRing = await rewrapRecovery(newRing, dek, newCode);
+  }
   if (!await saveKeyring(newRing)) {
     cryptoKey = null; calls = []; profile = null; quietDays = [];
     errorEl.textContent = "Couldn't save the new passcode. Nothing was changed; try again.";
     return;
   }
+  pendingRecoveryCode = newCode; // shown after unlocking when a new code was requested
   finishUnlock();
 }
 
@@ -2764,6 +2773,7 @@ function csvEscape(val) {
 }
 
 /* Remuneration units: Mon-Thu 1 allowance + 1/hour; Fri, Sat, Sun & public holidays 2 allowance per on-call day + 2/hour. */
+const UNIT_VALUE = 445; // dollars per unit
 const UNIT_RULES_TEXT = 'Mon-Thu: 1 unit on-call allowance + 1 unit per hour. Fri, Sat, Sun & public holidays: 2 unit allowance per day + 2 units per hour. Clinical consultations after 22:00 Mon-Fri, or after 18:00 Sat, Sun & public holidays: minimum 1 unit service charge for the night (not per call).';
 function unitRateFor(dateStr) {
   if (holidayName(dateStr)) return 2;
@@ -2994,13 +3004,14 @@ function sheetXml(rowsXml, widths, headerRow) {
 }
 
 const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1FA596"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF1F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFCFEBE7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6E3B4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="18"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="5" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="5" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/><numFmt numFmtId="166" formatCode="&quot;$&quot;#,##0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="8"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1FA596"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F5F3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFB5E1DA"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF6E3B4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF94D3C9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4FB3A5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="25"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="6" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="6" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="2" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="1" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="166" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="7" borderId="0" xfId="0" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 function exportXLSX(months, suffix) {
-  // Sheet 1: the log, grouped by day
+  // Sheet 1: the log - one block per day: day header band, calls, day total
   let r = 1;
   const rowsXml = [];
   const addRow = (cells) => { rowsXml.push(cells.length ? `<row r="${r}">${cells.join('')}</row>` : `<row r="${r}"/>`); r++; };
+  const band = (label, st) => { const c = [xcell(0, r, label, st)]; for (let i = 1; i < 8; i++) c.push(xcell(i, r, '', st)); return c; };
 
   if (profile) {
     addRow([xcell(0, r, 'Name', 9), xcell(1, r, profile.name)]);
@@ -3010,69 +3021,42 @@ function exportXLSX(months, suffix) {
   addRow([xcell(0, r, 'Unit rates', 9), xcell(1, r, UNIT_RULES_TEXT)]);
   addRow([]);
   const headerRow = r;
-  addRow(EXPORT_HEADERS.map((h, i) => xcell(i, r, h, 1)));
+  addRow(['Date', 'Start time', 'Finish time', 'Patient', 'Call type', 'Reason / notes', 'Duration (hours)', 'Units'].map((h, i) => xcell(i, r, h, 1)));
 
-  const shadeRow = (rowNum, textStyle, numStyle, label, minutes, monthLabel, date, dayName, holiday, u, uStyle) => {
-    const cells = [];
-    for (let i = 0; i < 14; i++) {
-      let v = '', kind = 's', st = textStyle;
-      if (i === 0 && monthLabel) v = monthLabel;
-      if (i === 1 && date) { v = excelDate(date); kind = 'n'; st = 11; }
-      if (i === 2 && dayName) v = dayName;
-      if (i === 5) v = label;
-      if (i === 8) { v = minutes; kind = 'n'; st = numStyle; }
-      if (i === 9 && holiday) v = holiday;
-      if (i >= 10) { v = u ? (u[i - 10] === null ? '' : u[i - 10]) : ''; kind = 'n'; st = uStyle || textStyle; }
-      cells.push(xcell(i, rowNum, v, st, kind));
-    }
-    return cells;
-  };
-
+  let lCalls = 0, lMin = 0, lUnits = 0;
   months.forEach(mo => {
-    let monthShown = false;
-    const monthCell = () => { if (monthShown) return ''; monthShown = true; return mo.label; };
     mo.days.forEach(day => {
-      const hol = (cellRow) => xcell(9, cellRow, day.holiday, day.holiday ? 8 : 0);
+      const [dy, dm, dd] = day.date.split('-').map(Number);
+      const dateText = new Date(dy, dm - 1, dd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      addRow(band(`${day.dayName} ${dateText}${day.holiday ? ' — ' + day.holiday + ' (public holiday)' : ''}`, 15));
       day.calls.forEach((c, ci) => {
         const end = callEndTime(c);
         addRow([
-          xcell(0, r, monthCell()),
-          ci === 0 ? xcell(1, r, excelDate(day.date), 2, 'n') : '',
-          ci === 0 ? xcell(2, r, day.dayName) : '',
-          xcell(3, r, excelTime(c.time), 3, 'n'),
-          xcell(4, r, end ? excelTime(end) : '', 3, 'n'),
-          xcell(5, r, c.label || ''),
-          xcell(6, r, c.type || ''),
-          xcell(7, r, c.reason || '', 17),
-          xcell(8, r, round2((c.durationMinutes || 0) / 60), 10, 'n'),
-          ci === 0 ? hol(r) : '',
-          '',
-          '',
-          xcell(12, r, day.callUnits[ci], 10, 'n'),
-          '',
-          xcell(14, r, day.callNotes[ci])
+          xcell(0, r, excelDate(day.date), 2, 'n'),
+          xcell(1, r, excelTime(c.time), 3, 'n'),
+          xcell(2, r, end ? excelTime(end) : '', 3, 'n'),
+          xcell(3, r, c.label || ''),
+          xcell(4, r, c.type || ''),
+          xcell(5, r, c.reason || '', 17),
+          xcell(6, r, round2((c.durationMinutes || 0) / 60), 10, 'n'),
+          xcell(7, r, day.callUnits[ci], 10, 'n')
         ]);
       });
-      // Days with calls: date, day and holiday are shown once, on the first call row. Quiet days get a single row.
-      const quiet = !day.calls.length;
-      const dayLabel = quiet ? 'On call, no calls received' : `${day.calls.length} call${day.calls.length === 1 ? '' : 's'} — day total`;
-      const dayCells = shadeRow(r, 4, 12, dayLabel, round2(day.minutes / 60), quiet ? monthCell() : '', quiet ? day.date : '', quiet ? day.dayName : '', quiet ? day.holiday : '', [day.rate, day.allowance, day.service, round2(day.allowance + day.service)], 12);
-      if (day.minApplied) dayCells.push(xcell(14, r, 'Minimum 1 unit service applied', 4));
-      addRow(dayCells);
-      if (months.showWeeks && day.weekEnd) {
-        const w = mo.weeks[day.weekKey];
-        addRow(shadeRow(r, 15, 14, `${w.label}: ${w.calls} call${w.calls === 1 ? '' : 's'} — week total`, round2(w.minutes / 60), '', '', '', '', [null, w.allowance, w.service, round2(w.allowance + w.service)], 14));
-      }
+      const units = round2(day.allowance + day.service);
+      const label = `Day total: ${day.calls.length ? day.calls.length + ' call' + (day.calls.length === 1 ? '' : 's') : 'no calls'} · includes ${day.allowance} unit${day.allowance === 1 ? '' : 's'} on-call allowance${day.minApplied ? ' · minimum 1 unit service applied' : ''}`;
+      const tot = band(label, 4);
+      tot[6] = xcell(6, r, round2(day.minutes / 60), 12, 'n');
+      tot[7] = xcell(7, r, units, 12, 'n');
+      addRow(tot);
+      addRow([]);
+      lCalls += day.calls.length; lMin += day.minutes; lUnits += units;
     });
-    if (months.length > 1) {
-      addRow(shadeRow(r, 6, 13, `${mo.calls} call${mo.calls === 1 ? '' : 's'} — month total`, round2(mo.minutes / 60), mo.label, '', '', '', [null, mo.allowance, mo.service, round2(mo.allowance + mo.service)], 13));
-    }
-    addRow([]);
   });
   if (months.length) {
-    const gm = months.reduce((s, m) => s + m.minutes, 0), gc = months.reduce((s, m) => s + m.calls, 0);
-    const ga = months.reduce((s, m) => s + m.allowance, 0), gs = round2(months.reduce((s, m) => s + m.service, 0));
-    addRow(shadeRow(r, 6, 13, `${gc} call${gc === 1 ? '' : 's'} — export total`, round2(gm / 60), '', '', '', '', [null, ga, gs, round2(ga + gs)], 13));
+    const tot = band(`Export total: ${lCalls} call${lCalls === 1 ? '' : 's'}`, 18);
+    tot[6] = xcell(6, r, round2(lMin / 60), 19, 'n');
+    tot[7] = xcell(7, r, round2(lUnits), 19, 'n');
+    addRow(tot);
   }
 
   // Sheet 2: monthly summary
@@ -3095,13 +3079,13 @@ function exportXLSX(months, suffix) {
   });
   if (!months.length) addSum([xcell(0, r2, 'No entries in this date range')]);
   else addSum([
-    xcell(0, r2, 'Total', 6),
-    xcell(1, r2, totCalls, 7, 'n'),
-    xcell(2, r2, round2(totMin / 60), 13, 'n'),
-    xcell(3, r2, totQuiet, 7, 'n'),
-    xcell(4, r2, totAllow, 13, 'n'),
-    xcell(5, r2, totServ, 13, 'n'),
-    xcell(6, r2, round2(totAllow + totServ), 13, 'n')
+    xcell(0, r2, 'Total', 18),
+    xcell(1, r2, totCalls, 20, 'n'),
+    xcell(2, r2, round2(totMin / 60), 19, 'n'),
+    xcell(3, r2, totQuiet, 20, 'n'),
+    xcell(4, r2, totAllow, 19, 'n'),
+    xcell(5, r2, totServ, 19, 'n'),
+    xcell(6, r2, round2(totAllow + totServ), 19, 'n')
   ]);
 
   // Sheet 3 (shown first in the workbook): Summary for submission - daily rows with weekly totals
@@ -3116,35 +3100,33 @@ function exportXLSX(months, suffix) {
   const allDays = months.reduce((a, m) => a.concat(m.days), []);
   if (allDays.length) addSub([xcell(0, r3, 'Period', 9), xcell(1, r3, `${allDays[0].date} to ${allDays[allDays.length - 1].date}`)]);
   addSub([xcell(0, r3, 'Exported', 9), xcell(1, r3, todayStr())]);
+  addSub([xcell(0, r3, 'Value per unit', 9), xcell(1, r3, UNIT_VALUE, 21, 'n')]);
   addSub([]);
   const subHeader = r3;
-  addSub(['Date', 'Day', 'Time spent (hours)', 'On-call day, no calls', 'Total units', 'Notes'].map((h, i) => xcell(i, r3, h, 1)));
-  let gMin = 0, gQuiet = 0, gUnits = 0, wMin = 0, wQuiet = 0, wUnits = 0;
-  const weekRow = (label, min, quiet, units, st, stN, stI) => addSub([xcell(0, r3, label, st), xcell(1, r3, '', st), xcell(2, r3, round2(min / 60), stN, 'n'), xcell(3, r3, quiet, stI, 'n'), xcell(4, r3, round2(units), stN, 'n'), xcell(5, r3, '', st)]);
+  addSub(['Date', 'Total units', 'Amount due', 'Notes'].map((h, i) => xcell(i, r3, h, 1)));
+  let gUnits = 0, wUnits = 0;
+  const weekRow = (label, units, st, stN, stM) => addSub([xcell(0, r3, label, st), xcell(1, r3, round2(units), stN, 'n'), xcell(2, r3, round2(units * UNIT_VALUE), stM, 'n'), xcell(3, r3, '', st)]);
   allDays.forEach((day, i) => {
     const units = day.allowance + day.service;
-    const quiet = day.calls.length ? 0 : 1;
     const notes = [day.holiday, day.minApplied ? 'Minimum 1 unit service applied' : ''].filter(Boolean).join('; ');
     addSub([
       xcell(0, r3, excelDate(day.date), 2, 'n'),
-      xcell(1, r3, day.dayName),
-      xcell(2, r3, round2(day.minutes / 60), 10, 'n'),
-      quiet ? xcell(3, r3, 1, 0, 'n') : '',
-      xcell(4, r3, round2(units), 10, 'n'),
-      xcell(5, r3, notes, day.holiday ? 8 : 0)
+      xcell(1, r3, round2(units), 10, 'n'),
+      xcell(2, r3, round2(units * UNIT_VALUE), 21, 'n'),
+      xcell(3, r3, notes, day.holiday ? 8 : 0)
     ]);
-    wMin += day.minutes; wQuiet += quiet; wUnits += units;
-    gMin += day.minutes; gQuiet += quiet; gUnits += units;
+    wUnits += units;
+    gUnits += units;
     const next = allDays[i + 1];
     if (!next || next.weekKey !== day.weekKey) {
       const [wy, wm, wd] = day.weekKey.split('-').map(Number);
       const wl = 'Week of ' + new Date(wy, wm - 1, wd).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-      weekRow(`${wl} — week total`, wMin, wQuiet, wUnits, 15, 14, 16);
-      wMin = 0; wQuiet = 0; wUnits = 0;
+      weekRow(`${wl} — week total`, wUnits, 15, 14, 22);
+      wUnits = 0;
     }
   });
   if (!allDays.length) addSub([xcell(0, r3, 'No entries in this date range')]);
-  else { addSub([]); weekRow('Total for this export', gMin, gQuiet, gUnits, 6, 13, 7); }
+  else { addSub([]); weekRow('Total for this export', gUnits, 18, 19, 23); }
 
   const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
   const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -3158,8 +3140,8 @@ function exportXLSX(months, suffix) {
     { name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${REL}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${REL}/styles" Target="styles.xml"/><Relationship Id="rId4" Type="${REL}/worksheet" Target="worksheets/sheet3.xml"/></Relationships>` },
     { name: 'xl/styles.xml', text: XLSX_STYLES },
-    { name: 'xl/worksheets/sheet1.xml', text: sheetXml(rowsXml, [16, 12, 12, 10, 11, 34, 32, 34, 16, 26, 14, 20, 20, 12, 24], headerRow) },
-    { name: 'xl/worksheets/sheet3.xml', text: sheetXml(subRows, [26, 12, 20, 22, 14, 36], subHeader) },
+    { name: 'xl/worksheets/sheet1.xml', text: sheetXml(rowsXml, [14, 12, 12, 16, 32, 34, 18, 12], headerRow) },
+    { name: 'xl/worksheets/sheet3.xml', text: sheetXml(subRows, [28, 14, 16, 44], subHeader) },
     { name: 'xl/worksheets/sheet2.xml', text: sheetXml(sumRows, [18, 10, 18, 22, 18, 22, 14], 1) }
   ];
   deliverFile(makeZip(files, XLSX_MIME), `oncall-log-${suffix}.xlsx`);
